@@ -1,0 +1,21 @@
+{
+  "name": "tavelo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Travel collaboration app for planning and remembering trips together.",
+  "scripts": {
+    "setup": "npm install --prefix backend && npm install --prefix mobile",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:mobile": "npm run start --prefix mobile",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix mobile",
+    "typecheck": "npm run typecheck --prefix backend && npm run typecheck --prefix mobile",
+    "test": "npm test --prefix backend",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9"
+  }
+}
