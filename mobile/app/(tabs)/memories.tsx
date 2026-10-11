@@ -1,5 +1,5 @@
 import { StyleSheet, Text } from 'react-native';
-import { ComingSoon } from '@/components/ComingSoon';
+import { EmptyState } from '@/components/EmptyState';
 import { Screen } from '@/components/Screen';
 import { colors, typography } from '@/theme';
 
@@ -7,9 +7,10 @@ export default function MemoriesRoute() {
   return (
     <Screen>
       <Text style={styles.title}>Memories</Text>
-      <ComingSoon
-        title="Photos and videos are coming later"
-        message="Trip media will be stored outside the database, after membership and privacy controls exist."
+      <EmptyState
+        title="Trip galleries live on each trip"
+        message="Open a trip and choose Open trip gallery to view and upload shared photos and videos."
+        illustration="travel"
       />
     </Screen>
   );

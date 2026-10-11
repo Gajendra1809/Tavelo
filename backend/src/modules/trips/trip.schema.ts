@@ -5,12 +5,6 @@ const dateOnly = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a valid date.')
   .refine(isRealDate, 'Use a valid date.');
 
-const httpImageUrl = z
-  .union([z.string().trim().max(2048, 'Use 2048 characters or fewer.'), z.null()])
-  .refine((value) => value == null || value === '' || isHttpUrl(value), {
-    message: 'Use an http or https image address.',
-  });
-
 export const createTripSchema = z
   .object({
     name: z.string().trim().min(1, 'Enter a trip name.').max(80, 'Use 80 characters or fewer.'),
@@ -27,7 +21,6 @@ export const createTripSchema = z
       .max(500, 'Use 500 characters or fewer.')
       .optional()
       .default(''),
-    coverImageUrl: httpImageUrl.optional(),
   })
   .strip()
   .refine((trip) => trip.endDate >= trip.startDate, {
@@ -51,7 +44,6 @@ export const updateTripSchema = z
     startDate: dateOnly.optional(),
     endDate: dateOnly.optional(),
     description: z.string().trim().max(500, 'Use 500 characters or fewer.').optional(),
-    coverImageUrl: httpImageUrl.optional(),
   })
   .strip()
   .refine((trip) => Object.values(trip).some((value) => value !== undefined), {
@@ -63,15 +55,6 @@ export const updateTripSchema = z
   });
 
 export type UpdateTripInput = z.infer<typeof updateTripSchema>;
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
 
 function isRealDate(value: string): boolean {
   const [year, month, day] = value.split('-').map((part) => Number(part));

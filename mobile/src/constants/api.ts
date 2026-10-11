@@ -5,3 +5,4 @@ export const REGISTER_PATH = '/api/v1/auth/register';
 export const LOGIN_PATH = '/api/v1/auth/login';
 export const REFRESH_PATH = '/api/v1/auth/refresh';
 export const LOGOUT_PATH = '/api/v1/auth/logout';
+export const USERS_ME_PATH = '/api/v1/users/me';

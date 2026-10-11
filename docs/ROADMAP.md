@@ -51,7 +51,7 @@ Status: shared itinerary on trip details is implemented.
 
 Depends on Phase 2. Itinerary display from Phase 3 is useful, but bookings and expenses only require a trip and its members.
 
-Status: shared trip expenses and settlements are implemented (integer minor units, equal/custom splits, balance ledger, suggested transfers, recorded payments). Bookings and payment gateways are still ahead.
+Status: shared trip expenses and settlements are implemented (integer minor units, equal/custom splits, balance ledger, suggested transfers, recorded payments). Profile avatars and trip covers upload to Supabase Storage (signed upload URL, keys in MongoDB). Bookings and payment gateways are still ahead.
 
 - Store flight, hotel, train, and other booking details entered by members.
 - Record shared expenses and who paid.
@@ -64,6 +64,8 @@ Booking confirmation files, if added, follow the file rule in Phase 5 rather tha
 ## Phase 5 — Photo and video storage and sharing
 
 Depends on Phase 2. It is independent of the itinerary and expense work, but it should not start before membership checks exist.
+
+Status: storage foundation, profile/trip cover uploads, and trip **memories** gallery (photos/videos, member uploads, captions) are in place. Client-side fetch caching (TTL stores, stale-while-revalidate, memory filter without refetch) and backend signed-URL caching are documented in [ARCHITECTURE.md](./ARCHITECTURE.md#client-data-cache-mobile). Video transcoding at upload time is still ahead; the app generates video thumbnails on device where needed.
 
 - Upload media to object storage.
 - Store only metadata and object keys in MongoDB.

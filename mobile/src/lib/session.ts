@@ -38,6 +38,11 @@ export async function restoreSession(): Promise<AuthUser | null> {
   return null;
 }
 
+export async function applyUserUpdate(user: AuthUser): Promise<void> {
+  await writeToken(tokenKeys.user, JSON.stringify(user));
+  emit(user);
+}
+
 export async function persistSession(session: AuthSession): Promise<void> {
   accessToken = session.accessToken;
   accessExpiresAt = Date.now() + session.expiresIn * 1000;

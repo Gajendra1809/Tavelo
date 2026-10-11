@@ -266,14 +266,6 @@ describe('authenticated trips', () => {
     const emptyUpdate = await send('PATCH', `/api/v1/trips/${trip.id}`, {}, owner.accessToken);
     assert.equal(emptyUpdate.status, 400);
 
-    const badCover = await send(
-      'PATCH',
-      `/api/v1/trips/${trip.id}`,
-      { coverImageUrl: 'javascript:alert(1)' },
-      owner.accessToken,
-    );
-    assert.equal(badCover.status, 400);
-
     const updated = await send(
       'PATCH',
       `/api/v1/trips/${trip.id}`,
@@ -281,14 +273,13 @@ describe('authenticated trips', () => {
         name: 'Tea country',
         destination: 'Ella',
         description: 'Updated notes.',
-        coverImageUrl: 'https://example.com/cover.jpg',
       },
       owner.accessToken,
     );
     assert.equal(updated.status, 200);
     const updatedTrip = json<{ success: true; data: TripBody }>(updated).data;
     assert.equal(updatedTrip.name, 'Tea country');
-    assert.equal(updatedTrip.coverImageUrl, 'https://example.com/cover.jpg');
+    assert.equal(updatedTrip.coverImageUrl, null);
     assert.equal(updatedTrip.startDate, '2026-12-02');
     assert.equal(updatedTrip.creatorId, owner.user.id);
 

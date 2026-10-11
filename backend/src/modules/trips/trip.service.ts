@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
-import { UserModel } from '../auth/user.model';
+import { loadUserSummaries } from '../users/user.service';
 import { deleteActivitiesForTrip } from '../itinerary/activity.service';
 import { deleteExpensesForTrip } from '../expenses/expense.service';
 import { deleteInvitationsForTrip } from '../invitations/invitation.service';
 import { AppError } from '../../utils/AppError';
+import { tryDeleteStoredObject } from '../storage/objectStore';
 import {
   dateOnlyToUtc,
   participantIds,
@@ -12,6 +13,7 @@ import {
   type TripRecord,
   type TripResponse,
 } from './trip.mapper';
+import { resolveCoverImageUrl } from './tripCoverDisplay';
 import { TripModel } from './trip.model';
 import type { CreateTripInput, UpdateTripInput } from './trip.schema';
 
@@ -22,14 +24,14 @@ export async function listTrips(ownerId: string): Promise<TripResponse[]> {
   })
     .sort({ startDate: 1, createdAt: 1 })
     .lean();
-  const names = await loadNames(trips.flatMap((trip) => participantIds(trip)));
-  return trips.map((trip) => toTripResponse(trip, names));
+  const profiles = await loadUserSummaries(trips.flatMap((trip) => participantIds(trip)));
+  return Promise.all(trips.map((trip) => toTripResponseWithCover(trip, profiles)));
 }
 
 export async function getTrip(ownerId: string, id: string): Promise<TripResponse> {
   const trip = await findAuthorizedTrip(ownerId, id);
-  const names = await loadNames(participantIds(trip));
-  return toTripResponse(trip, names);
+  const profiles = await loadUserSummaries(participantIds(trip));
+  return toTripResponseWithCover(trip, profiles);
 }
 
 export async function createTrip(ownerId: string, input: CreateTripInput): Promise<TripResponse> {
@@ -40,12 +42,11 @@ export async function createTrip(ownerId: string, input: CreateTripInput): Promi
     startDate: dateOnlyToUtc(input.startDate),
     endDate: dateOnlyToUtc(input.endDate),
     description: input.description,
-    coverImageUrl: input.coverImageUrl ? input.coverImageUrl : null,
     ownerId,
     members: [{ userId: ownerId, role: 'owner' }],
   });
-  const names = await loadNames([ownerId]);
-  return toTripResponse(trip, names);
+  const profiles = await loadUserSummaries([ownerId]);
+  return toTripResponseWithCover(trip, profiles);
 }
 
 export async function updateTrip(
@@ -71,17 +72,13 @@ export async function updateTrip(
   if (input.endDate !== undefined) {
     existing.endDate = dateOnlyToUtc(input.endDate);
   }
-  if (input.coverImageUrl !== undefined) {
-    existing.coverImageUrl = input.coverImageUrl ? input.coverImageUrl : null;
-  }
-
   if (toDateOnly(existing.endDate) < toDateOnly(existing.startDate)) {
     throw new AppError(400, 'VALIDATION_ERROR', 'End date must be on or after the start date.');
   }
 
   await existing.save();
-  const names = await loadNames(participantIds(existing));
-  return toTripResponse(existing, names);
+  const profiles = await loadUserSummaries(participantIds(existing));
+  return toTripResponseWithCover(existing, profiles);
 }
 
 export async function deleteTrip(ownerId: string, id: string): Promise<void> {
@@ -94,6 +91,9 @@ export async function deleteTrip(ownerId: string, id: string): Promise<void> {
   await deleteInvitationsForTrip(existing._id);
   await deleteActivitiesForTrip(existing._id);
   await deleteExpensesForTrip(existing._id);
+  const { deleteMemoriesForTrip } = await import('../memories/memory.service');
+  await deleteMemoriesForTrip(existing._id);
+  await tryDeleteStoredObject(existing.coverObjectKey ?? null);
 }
 
 export async function requireTripMember(userId: string, tripId: string) {
@@ -126,16 +126,12 @@ function assertOwner(trip: { ownerId?: { toString(): string } | null }, ownerId:
   }
 }
 
-async function loadNames(ids: string[]): Promise<Map<string, string>> {
-  const unique = [...new Set(ids.filter((id) => mongoose.isValidObjectId(id)))];
-  if (unique.length === 0) {
-    return new Map();
-  }
-
-  const users = await UserModel.find({ _id: { $in: unique } })
-    .select('name')
-    .lean();
-  return new Map(users.map((user) => [user._id.toString(), user.name]));
+async function toTripResponseWithCover(
+  record: TripRecord,
+  profiles: Awaited<ReturnType<typeof loadUserSummaries>>,
+): Promise<TripResponse> {
+  const coverImageUrl = await resolveCoverImageUrl(record);
+  return { ...toTripResponse(record, profiles), coverImageUrl };
 }
 
 function assertDatabaseConnected(): void {

@@ -25,7 +25,13 @@ export function TripCard({ trip, onPress }: TripCardProps) {
       style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
     >
       <View style={styles.media}>
-        <CoverMark uri={trip.coverImageUrl} label={trip.destination} style={styles.cover} textStyle={styles.coverText} />
+        <CoverMark
+          uri={trip.coverImageUrl}
+          cacheKey={`trip-cover:${trip.id}`}
+          label={trip.destination}
+          style={styles.cover}
+          textStyle={styles.coverText}
+        />
         <View style={[styles.badge, upcoming ? styles.badgeUpcoming : styles.badgePast]}>
           <Text style={[styles.badgeText, upcoming ? styles.badgeTextUpcoming : styles.badgeTextPast]}>
             {upcoming ? 'Upcoming' : 'Past'}

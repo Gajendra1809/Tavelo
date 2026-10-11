@@ -11,5 +11,5 @@ export type ReceivedInvitation = {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: string;
   trip: { id: string; name: string; destination: string };
-  inviter: { id: string; name: string };
+  inviter: { id: string; name: string; avatarUrl: string | null };
 };

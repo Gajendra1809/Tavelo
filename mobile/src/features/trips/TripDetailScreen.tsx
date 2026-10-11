@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CoverMark } from '@/components/CoverMark';
@@ -20,7 +20,11 @@ import {
   listSentInvitations,
   removeMember,
 } from '@/services/invitationService';
-import { deleteTrip, getTrip } from '@/services/tripService';
+import { useTripFromCache } from '@/hooks/useTripFromCache';
+import { expenseCache } from '@/lib/cache/expenseCache';
+import { memoryCache } from '@/lib/cache/memoryCache';
+import { tripCache } from '@/lib/cache/tripCache';
+import { deleteTrip } from '@/services/tripService';
 import type { SentInvitation } from '@/types/invitation';
 import type { Trip } from '@/types/trip';
 import { TripItinerarySection } from '@/features/trips/TripItinerarySection';
@@ -31,10 +35,7 @@ export function TripDetailScreen() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { user } = useAuth();
   const deletingRef = useRef(false);
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
+  const { trip, loading, error, errorStatus, refresh } = useTripFromCache(id);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -47,44 +48,28 @@ export function TripDetailScreen() {
     { kind: 'cancel'; invitation: SentInvitation } | { kind: 'remove'; userId: string; name: string } | null
   >(null);
 
-  const load = useCallback(async () => {
-    if (!id) {
-      setError('This trip link is missing an id.');
-      setErrorStatus(undefined);
-      setLoading(false);
+  const loadInvites = useCallback(async () => {
+    if (!trip || !user || trip.creatorId !== user.id) {
+      setSentInvites([]);
       return;
     }
-
-    setLoading(true);
-    setError(null);
-    setErrorStatus(undefined);
     try {
-      const loaded = await getTrip(id);
-      setTrip(loaded);
-      if (user && loaded.creatorId === user.id) {
-        const sent = await listSentInvitations(loaded.id);
-        setSentInvites(sent.invitations.filter((invitation) => invitation.status === 'pending'));
-      } else {
-        setSentInvites([]);
-      }
-    } catch (loadError) {
-      setTrip(null);
-      if (loadError instanceof ApiError) {
-        setError(loadError.message);
-        setErrorStatus(loadError.status);
-      } else {
-        setError('Could not load this trip. Try again.');
-      }
-    } finally {
-      setLoading(false);
+      const sent = await listSentInvitations(trip.id);
+      setSentInvites(sent.invitations.filter((invitation) => invitation.status === 'pending'));
+    } catch {
+      setSentInvites([]);
     }
-  }, [id, user]);
+  }, [trip, user]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      void refresh();
+    }, [refresh]),
   );
+
+  useEffect(() => {
+    void loadInvites();
+  }, [loadInvites]);
 
   async function confirmRemoval() {
     if (!trip || deletingRef.current) {
@@ -96,6 +81,9 @@ export function TripDetailScreen() {
     setConfirmDelete(false);
     try {
       await deleteTrip(trip.id);
+      tripCache.invalidateTrip(trip.id);
+      tripCache.invalidateList();
+      memoryCache.invalidate(trip.id);
       router.replace('/trips' as Href);
     } catch (deleteError) {
       deletingRef.current = false;
@@ -145,11 +133,14 @@ export function TripDetailScreen() {
         setSentInvites((current) => current.filter((item) => item.id !== action.invitation.id));
       } else {
         await removeMember(trip.id, action.userId);
-        setTrip((current) =>
-          current
-            ? { ...current, members: current.members.filter((member) => member.userId !== action.userId) }
-            : current,
-        );
+        if (trip) {
+          const next: Trip = {
+            ...trip,
+            members: trip.members.filter((member) => member.userId !== action.userId),
+          };
+          tripCache.setTrip(next);
+          expenseCache.invalidate(trip.id);
+        }
       }
     } catch (membershipFailure) {
       setMembershipError(
@@ -177,7 +168,7 @@ export function TripDetailScreen() {
         <ErrorState
           title={missing ? 'Trip not found' : 'Could not load trip'}
           message={error ?? 'Trip not found.'}
-          onRetry={missing ? undefined : () => void load()}
+          onRetry={missing ? undefined : () => void refresh({ force: true })}
         />
       </Screen>
     );
@@ -190,7 +181,13 @@ export function TripDetailScreen() {
 
   return (
     <Screen edges={['left', 'right', 'bottom']}>
-      <CoverMark uri={trip.coverImageUrl} label={trip.destination} style={styles.cover} textStyle={styles.coverText} />
+      <CoverMark
+        uri={trip.coverImageUrl}
+        cacheKey={`trip-cover:${trip.id}`}
+        label={trip.destination}
+        style={styles.cover}
+        textStyle={styles.coverText}
+      />
       <View style={styles.card}>
         <Text style={styles.destination}>{trip.destination}</Text>
         <Text style={styles.name}>{title}</Text>
@@ -220,7 +217,12 @@ export function TripDetailScreen() {
           <View style={styles.memberList}>
             {members.map((member) => (
               <View key={`${member.userId}-${member.role}`} style={styles.memberRow}>
-                <UserAvatar name={member.name} size="md" />
+                <UserAvatar
+                  name={member.name}
+                  uri={member.avatarUrl}
+                  cacheKey={`avatar:${member.userId}`}
+                  size="md"
+                />
                 <View style={styles.memberCopy}>
                   <Text numberOfLines={1} style={styles.memberName}>
                     {member.name}
@@ -310,6 +312,14 @@ export function TripDetailScreen() {
         </View>
       ) : null}
       {actionError ? <ErrorState title="Could not delete" message={actionError} /> : null}
+      <View style={styles.card}>
+        <Text style={styles.sectionLabel}>Memories</Text>
+        <Text style={styles.muted}>Share photos and videos with everyone on this trip.</Text>
+        <SecondaryButton
+          label="Open trip gallery"
+          onPress={() => router.push(`/trip/${trip.id}/memories` as Href)}
+        />
+      </View>
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>Expenses</Text>
         <Text style={styles.muted}>Track shared costs, who owes whom, and record settlements with the group.</Text>

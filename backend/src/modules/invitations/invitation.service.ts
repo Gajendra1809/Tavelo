@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { UserModel } from '../auth/user.model';
+import { loadUserSummaries, publicUserFromDocument } from '../users/user.service';
 import { TripModel } from '../trips/trip.model';
 import { AppError } from '../../utils/AppError';
 import { InvitationModel } from './invitation.model';
@@ -18,7 +19,7 @@ export type ReceivedInvitation = {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: string;
   trip: { id: string; name: string; destination: string };
-  inviter: { id: string; name: string };
+  inviter: { id: string; name: string; avatarUrl: string | null };
 };
 
 export async function inviteToTrip(
@@ -100,11 +101,10 @@ export async function listReceivedInvitations(userId: string): Promise<ReceivedI
   const trips = await TripModel.find({
     _id: { $in: invitations.map((invitation) => invitation.tripId) },
   }).select('name destination');
-  const inviters = await UserModel.find({
-    _id: { $in: invitations.map((invitation) => invitation.inviterId) },
-  }).select('name');
+  const inviterProfiles = await loadUserSummaries(
+    invitations.map((invitation) => invitation.inviterId.toString()),
+  );
   const tripById = new Map(trips.map((trip) => [trip._id.toString(), trip]));
-  const inviterById = new Map(inviters.map((user) => [user._id.toString(), user.name]));
 
   return invitations.flatMap((invitation) => {
     const trip = tripById.get(invitation.tripId.toString());
@@ -119,7 +119,8 @@ export async function listReceivedInvitations(userId: string): Promise<ReceivedI
         trip: { id: trip._id.toString(), name: trip.name, destination: trip.destination },
         inviter: {
           id: invitation.inviterId.toString(),
-          name: inviterById.get(invitation.inviterId.toString()) ?? 'Traveler',
+          name: inviterProfiles.get(invitation.inviterId.toString())?.name ?? 'Traveler',
+          avatarUrl: inviterProfiles.get(invitation.inviterId.toString())?.avatarUrl ?? null,
         },
       },
     ];
@@ -245,10 +246,11 @@ async function toReceived(invitation: {
     invitation.tripName && invitation.tripDestination
       ? { name: invitation.tripName, destination: invitation.tripDestination }
       : await TripModel.findById(invitation.tripId).select('name destination');
-  const inviter = await UserModel.findById(invitation.inviterId).select('name');
+  const inviterDoc = await UserModel.findById(invitation.inviterId).select('name email avatarObjectKey');
   if (!trip) {
     throw new AppError(404, 'NOT_FOUND', 'This invitation is no longer available.');
   }
+  const inviterPublic = inviterDoc ? await publicUserFromDocument(inviterDoc) : null;
   return {
     id: invitation._id.toString(),
     status: invitation.status,
@@ -260,7 +262,8 @@ async function toReceived(invitation: {
     },
     inviter: {
       id: invitation.inviterId.toString(),
-      name: inviter?.name ?? 'Traveler',
+      name: inviterPublic?.name ?? 'Traveler',
+      avatarUrl: inviterPublic?.avatarUrl ?? null,
     },
   };
 }

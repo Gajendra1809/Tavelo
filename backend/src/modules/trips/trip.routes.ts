@@ -51,6 +51,30 @@ import {
   listActivities,
   updateActivity,
 } from '../itinerary/activity.service';
+import { uploadCompleteSchema, uploadIntentSchema } from '../storage/storage.schema';
+import type { UploadCompleteInput, UploadIntentInput } from '../storage/storage.schema';
+import {
+  completeTripCoverUpload,
+  createTripCoverUploadIntent,
+  deleteTripCover,
+} from './tripCover.service';
+import {
+  createMemoryUploadIntent,
+  createTripMemory,
+  deleteTripMemory,
+  listTripMemories,
+  updateMemoryCaption,
+} from '../memories/memory.service';
+import {
+  createMemorySchema,
+  listMemoriesQuerySchema,
+  memoryUploadIntentSchema,
+  updateMemoryCaptionSchema,
+  type CreateMemoryInput,
+  type ListMemoriesQuery,
+  type MemoryUploadIntentInput,
+  type UpdateMemoryCaptionInput,
+} from '../memories/memory.schema';
 import { createTrip, deleteTrip, getTrip, listTrips, updateTrip } from './trip.service';
 
 export const tripRouter = Router();
@@ -279,6 +303,118 @@ tripRouter.delete(
   asyncHandler(async (req, res) => {
     await deleteExpense(currentUserId(req), paramId(req.params.id), paramId(req.params.expenseId));
     sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.get(
+  '/:id/memories',
+  validate({ query: listMemoriesQuerySchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await listTripMemories(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.query as ListMemoriesQuery,
+      ),
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/memories/upload-intent',
+  validate({ body: memoryUploadIntentSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await createMemoryUploadIntent(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.body as MemoryUploadIntentInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/memories',
+  validate({ body: createMemorySchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await createTripMemory(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.body as CreateMemoryInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.patch(
+  '/:id/memories/:mediaId',
+  validate({ body: updateMemoryCaptionSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await updateMemoryCaption(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.mediaId),
+        req.validated?.body as UpdateMemoryCaptionInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/memories/:mediaId',
+  asyncHandler(async (req, res) => {
+    await deleteTripMemory(
+      currentUserId(req),
+      paramId(req.params.id),
+      paramId(req.params.mediaId),
+    );
+    sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.post(
+  '/:id/cover/upload-intent',
+  validate({ body: uploadIntentSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await createTripCoverUploadIntent(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.body as UploadIntentInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/cover/complete',
+  validate({ body: uploadCompleteSchema }),
+  asyncHandler(async (req, res) => {
+    await completeTripCoverUpload(
+      currentUserId(req),
+      paramId(req.params.id),
+      req.validated?.body as UploadCompleteInput,
+    );
+    sendSuccess(res, await getTrip(currentUserId(req), paramId(req.params.id)));
+  }),
+);
+
+tripRouter.delete(
+  '/:id/cover',
+  asyncHandler(async (req, res) => {
+    await deleteTripCover(currentUserId(req), paramId(req.params.id));
+    sendSuccess(res, await getTrip(currentUserId(req), paramId(req.params.id)));
   }),
 );
 

@@ -8,6 +8,8 @@ import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { Skeleton } from '@/components/Skeleton';
 import { UserAvatar } from '@/components/UserAvatar';
+import { invitationCache } from '@/lib/cache/invitationCache';
+import { tripCache } from '@/lib/cache/tripCache';
 import { ApiError } from '@/lib/apiClient';
 import {
   acceptInvitation,
@@ -18,17 +20,30 @@ import type { ReceivedInvitation } from '@/types/invitation';
 import { colors, spacing, surfaceCard, typography } from '@/theme';
 
 export function InvitationsScreen() {
-  const [invitations, setInvitations] = useState<ReceivedInvitation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [invitations, setInvitations] = useState<ReceivedInvitation[]>(
+    () => invitationCache.get() ?? [],
+  );
+  const [loading, setLoading] = useState(() => !invitationCache.get()?.length && !invitationCache.isFresh());
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { force?: boolean }) => {
+    const force = options?.force ?? false;
+    const cached = invitationCache.get();
+    if (!force && invitationCache.isFresh() && cached) {
+      setInvitations(cached);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    if (!cached?.length) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const result = await listReceivedInvitations();
+      invitationCache.set(result.invitations);
       setInvitations(result.invitations);
     } catch (loadError) {
       setError(loadError instanceof ApiError ? loadError.message : 'Could not load invitations.');
@@ -55,7 +70,14 @@ export function InvitationsScreen() {
       } else {
         await declineInvitation(id);
       }
-      setInvitations((current) => current.filter((invitation) => invitation.id !== id));
+      setInvitations((current) => {
+        const next = current.filter((invitation) => invitation.id !== id);
+        invitationCache.set(next);
+        return next;
+      });
+      if (action === 'accept') {
+        tripCache.invalidateList();
+      }
     } catch (respondError) {
       setActionError(
         respondError instanceof ApiError ? respondError.message : 'Could not update the invitation.',
@@ -69,7 +91,7 @@ export function InvitationsScreen() {
     <Screen edges={['left', 'right', 'bottom']}>
       <Text style={styles.title}>Invitations</Text>
       {loading ? <Skeleton height={120} /> : null}
-      {!loading && error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {!loading && error ? <ErrorState message={error} onRetry={() => void load({ force: true })} /> : null}
       {!loading && !error && invitations.length === 0 ? (
         <EmptyState
           title="No invitations"
@@ -80,7 +102,7 @@ export function InvitationsScreen() {
       {invitations.map((invitation) => (
         <View key={invitation.id} style={styles.card}>
           <View style={styles.cardHeader}>
-            <UserAvatar name={invitation.inviter.name} size="sm" />
+            <UserAvatar name={invitation.inviter.name} uri={invitation.inviter.avatarUrl} size="sm" />
             <View style={styles.cardHeaderCopy}>
               <Text style={styles.name}>{invitation.trip.name}</Text>
               <Text style={styles.meta}>{invitation.trip.destination}</Text>

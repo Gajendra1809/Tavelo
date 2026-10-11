@@ -2,6 +2,7 @@ export type TripMember = {
   userId: string;
   role: 'owner' | 'member';
   name: string;
+  avatarUrl: string | null;
 };
 
 export type Trip = {
@@ -14,7 +15,7 @@ export type Trip = {
   description: string;
   coverImageUrl: string | null;
   creatorId: string | null;
-  creator: { id: string; name: string } | null;
+  creator: { id: string; name: string; avatarUrl: string | null } | null;
   members: TripMember[];
   createdAt: string;
   updatedAt: string;

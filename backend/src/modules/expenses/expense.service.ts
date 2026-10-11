@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { UserModel } from '../auth/user.model';
+import { loadUserSummaries } from '../users/user.service';
 import { requireTripMember } from '../trips/trip.service';
 import { dateOnlyToUtc, toDateOnly } from '../trips/trip.mapper';
 import type { TripDocument } from '../trips/trip.model';
@@ -50,7 +51,7 @@ export type SettlementResponse = {
 };
 
 export type BalancesResponse = {
-  balances: (MemberBalance & { name: string })[];
+  balances: (MemberBalance & { name: string; avatarUrl: string | null })[];
   totalsByCurrency: { currency: string; spentMinor: number }[];
 };
 
@@ -166,9 +167,16 @@ export async function deleteExpense(userId: string, tripId: string, expenseId: s
 export async function getBalances(userId: string, tripId: string): Promise<BalancesResponse> {
   const trip = await requireTripMember(userId, tripId);
   const { balances, totalsByCurrency } = await loadBalanceViews(trip._id);
-  const names = await loadNames([...new Set(balances.map((row) => row.userId))]);
+  const profiles = await loadUserSummaries([...new Set(balances.map((row) => row.userId))]);
   return {
-    balances: balances.map((row) => ({ ...row, name: names.get(row.userId) ?? 'Former member' })),
+    balances: balances.map((row) => {
+      const profile = profiles.get(row.userId);
+      return {
+        ...row,
+        name: profile?.name ?? 'Former member',
+        avatarUrl: profile?.avatarUrl ?? null,
+      };
+    }),
     totalsByCurrency,
   };
 }

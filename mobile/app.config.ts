@@ -30,6 +30,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Allow Tavelo to access your photos and videos for profile, covers, and trip memories.',
+      },
+    ],
+    'expo-video',
+    [
+      'expo-media-library',
+      {
+        photosPermission: 'Allow Tavelo to save downloaded trip photos and videos to your library.',
+        savePhotosPermission: 'Allow Tavelo to save downloaded trip photos and videos to your library.',
+      },
+    ],
     '@react-native-community/datetimepicker',
     ...(process.env.APP_ENV === 'production' ? [] : ['./plugins/withCleartextTraffic.js']),
   ],

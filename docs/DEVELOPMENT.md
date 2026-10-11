@@ -31,6 +31,16 @@ Set these values in `backend/.env`:
 | `MONGODB_URI`  | `mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/tavelo?retryWrites=true&w=majority` | Yes.                                            |
 | `API_PREFIX`   | `/api/v1`                                                                            | No.                                             |
 | `CORS_ORIGINS` | `http://localhost:8081`                                                              | No. Empty in production blocks browser origins. |
+| `JWT_ACCESS_SECRET` | Random string, at least 32 characters                                           | Yes, for auth routes.                           |
+| `STORAGE_ENABLED` | `false` or `true`                                                                 | No. Default `false` until Supabase is ready.    |
+| `SUPABASE_URL` | `https://YOUR_PROJECT_REF.supabase.co`                                              | When storage is enabled.                        |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key from Supabase dashboard                               | When storage is enabled. Backend only.          |
+| `SUPABASE_STORAGE_BUCKET` | e.g. `tavelo-media`                                                         | When storage is enabled.                        |
+| `SIGNED_URL_TTL_SECONDS` | `3600`                                                                       | No. Presigned GET lifetime and sign cache TTL.  |
+| `AVATAR_MAX_BYTES` | `5242880` (5 MB)                                                                | No.                                             |
+| `TRIP_COVER_MAX_BYTES` | `10485760` (10 MB)                                                          | No.                                             |
+| `MEMORY_IMAGE_MAX_BYTES` | `15728640` (15 MB)                                                        | No.                                             |
+| `MEMORY_VIDEO_MAX_BYTES` | `104857600` (100 MB)                                                      | No.                                             |
 
 Replace `USER`, `PASSWORD`, and `CLUSTER` with the Atlas database user and host. Do not put this file in Git.
 
@@ -72,7 +82,34 @@ The HTTP status is 200.
 
 `POST /api/v1/auth/register` and `POST /api/v1/auth/login` return an access token and a refresh token. `POST /api/v1/auth/refresh` rotates the refresh token. `POST /api/v1/auth/logout` revokes it.
 
-`GET`, `POST`, `PATCH`, and `DELETE` under `/api/v1/trips` require `Authorization: Bearer <access token>`. Dates are `YYYY-MM-DD`. Creating a trip stores the signed-in user as the owner. Only that owner can edit or delete it, invite someone, or remove a member. `GET /api/v1/invitations` lists invitations waiting for the signed-in person. Invites look up an existing account by email; there is no outbound mail yet. Future scope: email unknown addresses, ask them to register, then attach the pending invite when they sign up with the same email (third-party provider). Itinerary activities are under `/api/v1/trips/:id/activities` (list, create, get, update, delete). Only accepted trip members can use them. Activity dates must fall within the trip dates. Expenses use `/api/v1/trips/:id/expenses` and settlements under `/api/v1/trips/:id/settlements`. Amounts are integer minor units (INR paise by default). Balances and settlement suggestions are computed on the server. Feature rules (who may add, edit, record, or cancel) are listed in [ARCHITECTURE.md](./ARCHITECTURE.md#group-expenses-and-settlements-business-rules). A cover image, when present, is an `http` or `https` address. The app does not upload photo files yet; that needs object storage.
+`GET`, `POST`, `PATCH`, and `DELETE` under `/api/v1/trips` require `Authorization: Bearer <access token>`. Dates are `YYYY-MM-DD`. Creating a trip stores the signed-in user as the owner. Only that owner can edit or delete it, invite someone, or remove a member. `GET /api/v1/invitations` lists invitations waiting for the signed-in person. Invites look up an existing account by email; there is no outbound mail yet. Future scope: email unknown addresses, ask them to register, then attach the pending invite when they sign up with the same email (third-party provider). Itinerary activities are under `/api/v1/trips/:id/activities` (list, create, get, update, delete). Only accepted trip members can use them. Activity dates must fall within the trip dates. Expenses use `/api/v1/trips/:id/expenses` and settlements under `/api/v1/trips/:id/settlements`. Amounts are integer minor units (INR paise by default). Balances and settlement suggestions are computed on the server. Feature rules (who may add, edit, record, or cancel) are listed in [ARCHITECTURE.md](./ARCHITECTURE.md#group-expenses-and-settlements-business-rules).
+
+Profile avatars and trip covers use [Supabase Storage](https://supabase.com/docs/guides/storage) when storage is enabled. See [ARCHITECTURE.md](./ARCHITECTURE.md#media-storage-business-rules) for permission rules.
+
+### Object storage (Supabase)
+
+1. Sign in at [supabase.com](https://supabase.com) and create a project (free tier is enough for prototyping).
+2. Open **Storage** → **New bucket**. Name it (for example `tavelo-media`), leave it **private** (not public).
+3. Open **Project Settings** → **API**. Copy:
+   - **Project URL** → `SUPABASE_URL` (must start with `https://`)
+   - **service_role** secret (under **Project API keys**) → `SUPABASE_SERVICE_ROLE_KEY`  
+     Use the **service role** key on the backend only. Never put it in the mobile app or commit it.
+4. Copy the storage block from [backend/.env.example](../backend/.env.example) into `backend/.env`. Set `STORAGE_ENABLED=true`, paste URL and service role key, and set `SUPABASE_STORAGE_BUCKET` to the bucket name from step 2.
+5. Remove any old `S3_*` / R2 variables from `backend/.env` if they are still there.
+6. Restart the backend after changing `.env`.
+
+Optional (Expo web uploads from the browser): in the Supabase dashboard, **Storage** → your bucket → **Configuration** → **CORS**, allow your dev origin (for example `http://localhost:8081`) for `PUT`, `GET`, and `HEAD`. Native Expo Go does not send `Origin` the same way; phone testing usually works without CORS tweaks.
+
+Manual smoke (with a valid access token):
+
+1. `POST /api/v1/users/me/avatar/upload-intent` with `{ "contentType": "image/jpeg", "byteSize": <size> }`.
+2. `PUT` the file to `uploadUrl` with header `Content-Type: image/jpeg`.
+3. `POST /api/v1/users/me/avatar/complete` with `{ "objectKey": "..." }`.
+4. `GET /api/v1/users/me` should return a non-null `avatarUrl`.
+
+Trip covers follow the same pattern under `/api/v1/trips/:id/cover/upload-intent` and `.../complete` (owner only).
+
+When `STORAGE_ENABLED=true`, the API caches Supabase **signed GET URLs** in memory keyed by `objectKey` for `SIGNED_URL_TTL_SECONDS` (minus a small skew). Repeated list/detail requests within that window reuse the same URL instead of calling Supabase sign again. Restarting the backend clears the cache.
 
 Set `JWT_ACCESS_SECRET` in `backend/.env` to a random string of at least 32 characters. Do not commit that value.
 
@@ -163,6 +200,24 @@ Then, in the app, tap **Check connection**.
 - **API: Reachable** and **Database: Not connected** means the phone reached the API, but MongoDB did not.
 - A network error means the phone never reached the API. Check the LAN IP, the firewall rule, and that `npm run dev:backend` is still running.
 
+## Mobile client data cache
+
+The Expo app keeps short-lived in-memory caches so back navigation and tab switches do not refetch everything. Rules and module list:
+
+- [ARCHITECTURE.md — Client data cache](./ARCHITECTURE.md#client-data-cache-mobile)
+- [mobile/src/lib/cache/README.md](../mobile/src/lib/cache/README.md)
+
+**Quick verification (manual):**
+
+1. Open **Trips**, wait for the list, tap a trip — detail should appear without a long skeleton if the trip was just listed (seeded cache).
+2. On **Memories**, switch All → Photos → Videos — the grid should not flash empty and should not repeat list requests for each tab.
+3. Return to **Trips** within about 60 seconds — the list should stay visible; a background refresh may run without blanking the UI.
+4. Pull to refresh on Trips still forces a new `GET /trips`.
+
+Remote images use `expo-image` (`CachedImage`) with stable cache keys. Memory API responses include `objectKey` for that purpose.
+
+**Memories download:** In **Expo Go**, saving uses the system **share sheet** (choose Save to Photos) because Expo Go does not include the SDK 57 `expo-media-library` native module. **Bulk download** in Expo Go shows a hint to save one item at a time or use a **development build** (with the `expo-media-library` config plugin) for direct gallery saves.
+
 ## Other checks
 
 ```powershell
@@ -171,7 +226,7 @@ npm run lint
 npm test
 ```
 
-Backend tests do not need Atlas. They cover configuration parsing, CORS decisions, request validation, trip input rules, the health report while MongoDB is disconnected, unknown routes, and malformed JSON.
+Backend tests do not need Atlas. They cover configuration parsing, CORS decisions, request validation, trip input rules, the health report while MongoDB is disconnected, unknown routes, and malformed JSON. Memory integration tests run with `STORAGE_ENABLED=false` unless you configure storage locally.
 
 ## Android cleartext HTTP
 

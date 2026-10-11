@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, typography } from '@/theme';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, StyleSheet } from 'react-native';
+import { colors } from '@/theme';
 
 export function HeaderBackButton() {
   return (
@@ -17,18 +18,21 @@ export function HeaderBackButton() {
       }}
       style={styles.button}
     >
-      <Text style={styles.label}>Back</Text>
+      <SymbolView
+        name={{ android: 'arrow_back', web: 'arrow_back' }}
+        size={24}
+        tintColor={colors.primary}
+      />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 4,
-    paddingRight: 8,
-  },
-  label: {
-    ...typography.label,
-    color: colors.primary,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -8,
   },
 });

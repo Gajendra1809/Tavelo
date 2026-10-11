@@ -2,6 +2,7 @@ export type TripMemberResponse = {
   userId: string;
   role: 'owner' | 'member';
   name: string;
+  avatarUrl: string | null;
 };
 
 export type TripResponse = {
@@ -14,7 +15,7 @@ export type TripResponse = {
   description: string;
   coverImageUrl: string | null;
   creatorId: string | null;
-  creator: { id: string; name: string } | null;
+  creator: { id: string; name: string; avatarUrl: string | null } | null;
   members: TripMemberResponse[];
   createdAt: string;
   updatedAt: string;
@@ -33,23 +34,31 @@ export type TripRecord = {
   endDate: Date;
   description?: string;
   coverImageUrl?: string | null;
+  coverObjectKey?: string | null;
   ownerId?: { toString(): string } | null;
   members?: TripMemberRecord[];
   createdAt: Date;
   updatedAt: Date;
 };
 
+export type TripParticipantProfile = {
+  name: string;
+  avatarUrl: string | null;
+};
+
 export function toTripResponse(
   record: TripRecord,
-  names: ReadonlyMap<string, string> = new Map(),
+  profiles: ReadonlyMap<string, TripParticipantProfile> = new Map(),
 ): TripResponse {
   const creatorId = record.ownerId?.toString() ?? null;
   const members = memberRecords(record).map((member) => {
     const userId = member.userId.toString();
+    const profile = profiles.get(userId);
     return {
       userId,
       role: member.role === 'owner' ? 'owner' : 'member',
-      name: names.get(userId) ?? 'Traveler',
+      name: profile?.name ?? 'Traveler',
+      avatarUrl: profile?.avatarUrl ?? null,
     } satisfies TripMemberResponse;
   });
 
@@ -63,7 +72,13 @@ export function toTripResponse(
     description: record.description ?? '',
     coverImageUrl: record.coverImageUrl ? record.coverImageUrl : null,
     creatorId,
-    creator: creatorId ? { id: creatorId, name: names.get(creatorId) ?? 'Traveler' } : null,
+    creator: creatorId
+      ? {
+          id: creatorId,
+          name: profiles.get(creatorId)?.name ?? 'Traveler',
+          avatarUrl: profiles.get(creatorId)?.avatarUrl ?? null,
+        }
+      : null,
     members,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

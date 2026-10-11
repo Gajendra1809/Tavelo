@@ -87,16 +87,4 @@ describe('updateTripSchema', () => {
     assert.equal(result.success, false);
   });
 
-  it('rejects a cover address that is not http or https', () => {
-    const result = updateTripSchema.safeParse({ coverImageUrl: 'javascript:alert(1)' });
-    assert.equal(result.success, false);
-  });
-
-  it('accepts a https cover address and a cleared cover', () => {
-    assert.equal(
-      updateTripSchema.parse({ coverImageUrl: 'https://example.com/cover.jpg' }).coverImageUrl,
-      'https://example.com/cover.jpg',
-    );
-    assert.equal(updateTripSchema.parse({ coverImageUrl: null }).coverImageUrl, null);
-  });
 });

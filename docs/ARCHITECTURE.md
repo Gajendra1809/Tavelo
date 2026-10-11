@@ -19,7 +19,8 @@ The phone never receives the database connection string or any other server secr
 | `src/components/` | Reusable UI such as buttons and status views.      |
 | `src/hooks/`      | React state for a user action.                     |
 | `src/services/`   | Feature calls built on the shared API client.      |
-| `src/lib/`        | API client and environment reading.                |
+| `src/lib/`        | API client, environment reading, and TTL caches (`src/lib/cache/`). |
+| `src/lib/cache/`  | In-memory client data cache (see below).           |
 | `src/theme/`      | Colors, spacing, type, and radii.                  |
 | `src/types/`      | Shared response shapes.                            |
 | `src/constants/`  | Fixed values such as the health path.              |
@@ -32,6 +33,33 @@ Expo Router’s navigation code loads React Native Reanimated. `react-native-rea
 
 The health service accepts HTTP 200 and 503. Both can carry a successful report. A disconnected database is a reported status, not a failed request. Timeouts and connection failures are errors.
 
+### Client data cache (mobile)
+
+The app does not use TanStack Query. Instead, small in-memory TTL stores under `mobile/src/lib/cache/` back the trip list, trip detail, memories list, expenses bundle, invitations, profile refresh, and itinerary days. Module-level detail lives in [`mobile/src/lib/cache/README.md`](../mobile/src/lib/cache/README.md).
+
+| Store | TTL (default) | Used by |
+| --- | --- | --- |
+| `tripCache` | 60s list + per-trip detail | Trips tab, Home, Expenses home, trip detail, edit, expenses header |
+| `memoryCache` | 5 min per trip | Trip memories grid |
+| `expenseCache` | 60s per trip | Trip expenses ledger |
+| `invitationCache` | 60s | Received invitations |
+| `profileCache` | 120s | Profile focus refresh via `refreshProfile` |
+| `activityCache` | 60s per trip day | Itinerary section on trip detail |
+
+**Hooks:** `useTrips` (list + `seedTripForNavigation`), `useTripFromCache` (single trip with stale-while-revalidate).
+
+Conventions for new features:
+
+1. **Navigate with seed data** — call `seedTripForNavigation(trip)` before `router.push` when the trip is already on screen.
+2. **Stale-while-revalidate** — if cache is fresh, render immediately; optionally refresh in the background without clearing UI (trip list does this on focus).
+3. **Focus** — `useFocusEffect` checks `isFresh()` instead of unconditional reloads.
+4. **Filters/tabs** — filter cached arrays client-side when possible (memories All/Photos/Videos; API always loads `filter=all`).
+5. **Mutations** — call the matching `invalidate()` or patch the cache after create/update/delete (see cache README invalidation table).
+
+**Images:** `expo-image` via `CachedImage` with a stable `cacheKey` (memory `objectKey`, `avatar:{userId}`, `trip-cover:{tripId}`) so rotated Supabase signed URLs still hit disk/memory cache.
+
+**Future API shape:** trip list responses could slim to a `TripSummary` (cover, title, dates, member count) and load full members only on `GET /trips/:id`. Not required while the client cache is in place. A batch sign endpoint (`POST /media/sign`) would further cut round trips; not implemented yet.
+
 ## Backend
 
 | Path              | Responsibility                                                |
@@ -41,7 +69,7 @@ The health service accepts HTTP 200 and 503. Both can carry a successful report.
 | `src/config/`     | Environment, database, and CORS.                              |
 | `src/middleware/` | Logging, 404s, and errors.                                    |
 | `src/routes/`     | Mount feature routers under the API prefix.                   |
-| `src/modules/`    | Feature behavior. Health is the only module so far.           |
+| `src/modules/`    | Feature modules (auth, trips, expenses, memories, storage, health, …). |
 | `src/utils/`      | Response helpers, errors, validation, and secret redaction.   |
 
 Business decisions sit in modules and services. Route handlers parse the request, call that code, and send the response.
@@ -61,6 +89,13 @@ Backend environment variables are loaded with dotenv from `backend/.env` and che
 | `MONGODB_URI`  | MongoDB connection string. Required.              |
 | `API_PREFIX`   | Mount path. Defaults to `/api/v1`.                |
 | `CORS_ORIGINS` | Comma-separated browser origins. `*` is rejected. |
+| `JWT_ACCESS_SECRET` | Signs access tokens (min 32 characters). |
+| `STORAGE_ENABLED` | When `true`, Supabase uploads and signed URLs are active. |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` | Supabase project and private bucket (backend only). |
+| `SIGNED_URL_TTL_SECONDS` | Lifetime of presigned GET URLs and in-process sign cache. |
+| `AVATAR_MAX_BYTES`, `TRIP_COVER_MAX_BYTES`, `MEMORY_IMAGE_MAX_BYTES`, `MEMORY_VIDEO_MAX_BYTES` | Upload size caps. |
+
+Full examples: [`backend/.env.example`](../backend/.env.example). Setup steps: [DEVELOPMENT.md](./DEVELOPMENT.md#object-storage-supabase).
 
 `EXPO_PUBLIC_API_URL` is the mobile base URL, origin only, without `/api/v1`. The health path lives in `mobile/src/constants/api.ts`. If `API_PREFIX` changes, that constant must change with it.
 
@@ -125,7 +160,7 @@ Login and registration are rate limited. A failed login uses the same message wh
 
 ## Visual theme
 
-The mobile app uses one set of tokens in `mobile/src/theme`. Screens sit on a soft sky-to-ivory wash, with white cards, teal actions, and seafoam highlights. Scenic photos are used for the sign-in hero and for a trip cover when a cover address exists. Memories is still a placeholder. Shared expenses use a dedicated Expense collection and Settlement records per trip. Trip details include a shared day-by-day itinerary for accepted members.
+The mobile app uses one set of tokens in `mobile/src/theme`. Screens sit on a soft sky-to-ivory wash, with white cards, teal actions, and seafoam highlights. Scenic photos are used for the sign-in hero and for a trip cover when a cover address exists. Trip memories use an Instagram-style grid with client-side All/Photos/Videos filters. Shared expenses use a dedicated Expense collection and Settlement records per trip. Trip details include a shared day-by-day itinerary for accepted members.
 
 ## Trips
 
@@ -157,6 +192,10 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `GET/POST` | `/api/v1/trips/:id/settlements` | List or record an off-app payment |
 | `DELETE` | `/api/v1/trips/:id/settlements/:settlementId` | Cancel a recorded settlement |
 | `GET/PATCH/DELETE` | `/api/v1/trips/:id/expenses/:expenseId` | Read, update, or delete one expense |
+| `GET` | `/api/v1/trips/:id/memories` | Member lists trip media (paginated; optional `filter`, `cursor`, `limit`) |
+| `POST` | `/api/v1/trips/:id/memories/upload-intent` | Member prepares upload; returns presigned PUT URL |
+| `POST` | `/api/v1/trips/:id/memories` | Member completes upload (object keys, caption, optional thumbnail key) |
+| `PATCH/DELETE` | `/api/v1/trips/:id/memories/:memoryId` | Uploader or owner updates caption or deletes item |
 
 A missing or invalid token is 401. Error bodies do not include the trip. An invitation card for the recipient includes the trip name, destination, and inviter name.
 
@@ -164,7 +203,26 @@ Stored fields are `name` (the title), `destination`, `description`, `startDate`,
 
 Dates are calendar dates (`YYYY-MM-DD`), stored at UTC midnight so the day does not shift with the server timezone. The end date cannot be earlier than the start date, including when an update changes only one of the two dates.
 
-`coverImageUrl` accepts an `http` or `https` address, or `null` to clear it. The API does not accept image bytes. Choosing a photo in the app needs object storage and an upload flow, which are not configured yet.
+Trip and user photos use **Supabase Storage** when `STORAGE_ENABLED=true`. MongoDB stores `avatarObjectKey` on users and `coverObjectKey` on trips. API responses expose time-limited **signed HTTPS URLs** as `avatarUrl` and `coverImageUrl`. Legacy trips may still have an old `coverImageUrl` string until a cover is uploaded via storage.
+
+When storage is enabled, `createPresignedGetUrl` in `backend/src/modules/storage/objectStore.ts` keeps an **in-process cache** keyed by `objectKey`. Entries live for `SIGNED_URL_TTL_SECONDS` (minus a small skew). Restarting the API clears the cache. This dedupes Supabase sign calls on hot paths such as `GET /trips` and memory lists.
+
+### Media storage (business rules)
+
+| Topic | Rule |
+| --- | --- |
+| **Bucket** | Private; no public read. |
+| **Upload flow** | Client calls upload-intent → **PUT** bytes to presigned URL → complete. Original quality is preserved (no server re-encode in v1). |
+| **Profile avatar** | Self only: `POST/DELETE /api/v1/users/me/avatar/*`. |
+| **Trip cover** | Trip owner only: `POST/DELETE /api/v1/trips/:id/cover/*`. |
+| **View cover** | Trip members via existing trip GET/list (signed URL in `coverImageUrl`). |
+| **View avatar** | Any signed-in user (v1). |
+| **MIME types** | `image/jpeg`, `image/png`, `image/webp`. |
+| **Size limits** | Configurable (`AVATAR_MAX_BYTES`, `TRIP_COVER_MAX_BYTES`; defaults 5 MB / 10 MB). |
+| **Storage off** | Upload routes return 503; mobile uses bundled default images. |
+| **Object keys** | `users/{userId}/avatar/{uuid}.ext`, `trips/{tripId}/cover/{uuid}.ext`, `trips/{tripId}/media/{uuid}.ext`. |
+| **Trip memories** | Members: `GET/POST /api/v1/trips/:id/memories`, upload-intent + complete pattern. Edit/delete caption or delete item: uploader or trip owner. Keys under `trips/{tripId}/media/`. Images JPEG/PNG/WebP; videos MP4/MOV. Limits: `MEMORY_IMAGE_MAX_BYTES` (default 15 MB), `MEMORY_VIDEO_MAX_BYTES` (default 100 MB). List items include stable `objectKey` / `thumbnailObjectKey` plus signed `mediaUrl` / `thumbnailUrl`. Mobile can **save to device** from the preview (download icon / “Save to device”) or **bulk download** after multi-select on the grid (`memoryDownload.ts` uses signed URLs + `expo-media-library` on native). |
+| **Signed GET URLs** | Minted per request when not cached; TTL from `SIGNED_URL_TTL_SECONDS` (default 3600s). Same `objectKey` reuses cached URL within TTL. |
 
 Trips created before accounts have no `ownerId`. They are not listed and cannot be opened. They are not assigned to anyone. To remove them, delete trip documents in MongoDB where `ownerId` does not exist.
 
@@ -198,7 +256,7 @@ Invitations are stored separately from the trip, with a status of pending, accep
 
 The server does not trust a user id sent by the client. Trip access uses the verified token. Changing an id does not open a trip unless that account is the creator or a member.
 
-Photos and videos will go to object storage. MongoDB should store metadata and object keys, not file bytes.
+Trip memories use the `TripMemory` collection plus private object keys; signed URLs are generated when listing or viewing, not stored as the durable reference.
 
 ## Logging
 

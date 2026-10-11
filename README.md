@@ -2,7 +2,7 @@
 
 Tavelo is a travel collaboration app. A trip organizer can create a trip and invite friends. Members will eventually plan an itinerary, store bookings, track shared expenses, share photos, and revisit the trip later.
 
-This repository holds the React Native app and the Node.js API. Signed-in people can create trips, invite members, plan a shared itinerary, and track group expenses with balances and settlements. Expense and settlement permission rules are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#group-expenses-and-settlements-business-rules). Memories and bookings are still ahead, as described in [docs/ROADMAP.md](docs/ROADMAP.md).
+This repository holds the React Native app and the Node.js API. Signed-in people can create trips, invite members, plan a shared itinerary, share trip photos and videos (memories), and track group expenses with balances and settlements. Expense and settlement permission rules are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#group-expenses-and-settlements-business-rules). Profile, trip covers, and memories use Supabase Storage when configured ([media rules](docs/ARCHITECTURE.md#media-storage-business-rules), [setup](docs/DEVELOPMENT.md#object-storage-supabase)). The mobile app uses a lightweight in-memory TTL cache to avoid redundant fetches ([client cache](docs/ARCHITECTURE.md#client-data-cache-mobile), [cache modules](mobile/src/lib/cache/README.md)). Bookings and other roadmap items are in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Repository layout
 
@@ -79,8 +79,9 @@ npm test
 
 ## Documentation
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the app, API, and database fit together
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — commands, LAN IP setup, and troubleshooting
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the app, API, and database fit together (includes [client data cache](docs/ARCHITECTURE.md#client-data-cache-mobile), trips, expenses, memories, storage)
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — commands, env vars, Supabase setup, cache verification, and troubleshooting
+- [mobile/src/lib/cache/README.md](mobile/src/lib/cache/README.md) — cache modules, hooks, seeding, and invalidation
 - [docs/ROADMAP.md](docs/ROADMAP.md) — phased product plan
 
 ## Git
@@ -89,4 +90,4 @@ Creating the Expo app also created a Git repository inside `mobile/` that contai
 
 ## Current limits
 
-Sign-in is required before a trip can be created, opened, edited, or deleted. The creator can invite another registered account by email. Accepting the invitation adds that person as a member. Only the creator can change the trip, invite people, or remove members. Trips saved before accounts existed have no owner and stay hidden. A cover can be an image address. Uploading a photo still needs object storage, and the file itself is not stored in MongoDB. The app does not send invitation email. **Future scope:** email people who are not on Tavelo yet, prompt them to register, then show the pending invitation after sign-up (third-party mail provider).
+Sign-in is required before a trip can be created, opened, edited, or deleted. The creator can invite another registered account by email. Accepting the invitation adds that person as a member. Only the creator can change the trip, invite people, or remove members. Trips saved before accounts existed have no owner and stay hidden. Trip covers and profile photos upload to object storage (Supabase); MongoDB stores keys only. See DEVELOPMENT.md for Supabase setup. The app does not send invitation email. **Future scope:** email people who are not on Tavelo yet, prompt them to register, then show the pending invitation after sign-up (third-party mail provider).

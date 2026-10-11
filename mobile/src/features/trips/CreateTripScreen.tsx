@@ -4,6 +4,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ErrorState } from '@/components/ErrorState';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { tripCache } from '@/lib/cache/tripCache';
 import { ApiError } from '@/lib/apiClient';
 import { createTrip } from '@/services/tripService';
 import {
@@ -68,6 +69,8 @@ export function CreateTripScreen() {
         endDate: values.endDate,
         description: values.description.trim(),
       });
+      tripCache.setTrip(trip);
+      tripCache.invalidateList();
       allowLeave.current = true;
       router.replace(`/trip/${trip.id}` as Href);
     } catch (error) {

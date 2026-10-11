@@ -7,7 +7,7 @@ import { Screen } from '@/components/Screen';
 import { SectionHeader } from '@/components/SectionHeader';
 import { TripListSkeleton } from '@/components/Skeleton';
 import { TripCard } from '@/components/TripCard';
-import { useTrips } from '@/hooks/useTrips';
+import { seedTripForNavigation, useTrips } from '@/hooks/useTrips';
 import { splitTrips } from '@/lib/tripGroups';
 import type { Trip } from '@/types/trip';
 import { colors, spacing, typography } from '@/theme';
@@ -58,7 +58,10 @@ function TripLink({ trip }: { trip: Trip }) {
   return (
     <TripCard
       trip={trip}
-      onPress={() => router.push(`/trip/${trip.id}` as Href)}
+      onPress={() => {
+        seedTripForNavigation(trip);
+        router.push(`/trip/${trip.id}` as Href);
+      }}
     />
   );
 }

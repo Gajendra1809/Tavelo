@@ -4,13 +4,11 @@ import { hashPassword, verifyPassword } from './password';
 import { RefreshTokenModel } from './refreshToken.model';
 import type { LoginInput, RefreshInput, RegisterInput } from './auth.schema';
 import { createRefreshToken, hashRefreshToken, signAccessToken } from './tokens';
+import type { PublicUser } from '../../types/publicUser';
+import { publicUserFromDocument } from '../users/user.service';
 import { UserModel, type UserDocument } from './user.model';
 
-export type PublicUser = {
-  id: string;
-  name: string;
-  email: string;
-};
+export type { PublicUser };
 
 export type AuthSession = {
   user: PublicUser;
@@ -82,7 +80,7 @@ export async function refreshSession(input: RefreshInput): Promise<AuthSession> 
 
   const access = signAccessToken(user._id.toString());
   return {
-    user: toPublicUser(user),
+    user: await publicUserFromDocument(user),
     accessToken: access.token,
     refreshToken: next.raw,
     expiresIn: access.expiresIn,
@@ -109,18 +107,10 @@ async function issueSession(user: UserDocument): Promise<AuthSession> {
   });
   const access = signAccessToken(user._id.toString());
   return {
-    user: toPublicUser(user),
+    user: await publicUserFromDocument(user),
     accessToken: access.token,
     refreshToken: refresh.raw,
     expiresIn: access.expiresIn,
-  };
-}
-
-function toPublicUser(user: Pick<UserDocument, '_id' | 'name' | 'email'>): PublicUser {
-  return {
-    id: user._id.toString(),
-    name: user.name,
-    email: user.email,
   };
 }
 

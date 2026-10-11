@@ -5,7 +5,7 @@ import { ErrorState } from '@/components/ErrorState';
 import { Screen } from '@/components/Screen';
 import { TripListSkeleton } from '@/components/Skeleton';
 import { TripCard } from '@/components/TripCard';
-import { useTrips } from '@/hooks/useTrips';
+import { seedTripForNavigation, useTrips } from '@/hooks/useTrips';
 import { colors, spacing, typography } from '@/theme';
 
 export function ExpensesHomeScreen() {
@@ -32,7 +32,10 @@ export function ExpensesHomeScreen() {
         <TripCard
           key={trip.id}
           trip={trip}
-          onPress={() => router.push(`/trip/${trip.id}/expenses` as Href)}
+          onPress={() => {
+            seedTripForNavigation(trip);
+            router.push(`/trip/${trip.id}/expenses` as Href);
+          }}
         />
       ))}
     </Screen>

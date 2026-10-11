@@ -21,6 +21,7 @@ export type MemberBalanceRow = {
   shareMinor: number;
   netMinor: number;
   name: string;
+  avatarUrl: string | null;
 };
 
 export type SettlementSuggestion = {

@@ -9,7 +9,7 @@ import { TripListSkeleton } from '@/components/Skeleton';
 import { TripCard } from '@/components/TripCard';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useTrips } from '@/hooks/useTrips';
+import { seedTripForNavigation, useTrips } from '@/hooks/useTrips';
 import { splitTrips } from '@/lib/tripGroups';
 import { colors, spacing, typography } from '@/theme';
 
@@ -23,7 +23,12 @@ export function HomeScreen() {
     <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
       <View style={styles.intro}>
         <View style={styles.introRow}>
-          <UserAvatar name={user?.name ?? 'Traveler'} size="sm" />
+          <UserAvatar
+            name={user?.name ?? 'Traveler'}
+            uri={user?.avatarUrl}
+            cacheKey={user?.id ? `avatar:${user.id}` : null}
+            size="sm"
+          />
           <View style={styles.introCopy}>
             <Text style={styles.greeting}>{firstName ? `Hello, ${firstName}` : 'Hello'}</Text>
             <Text style={styles.description}>
@@ -56,7 +61,10 @@ export function HomeScreen() {
         <TripCard
           key={trip.id}
           trip={trip}
-          onPress={() => router.push(`/trip/${trip.id}` as Href)}
+          onPress={() => {
+            seedTripForNavigation(trip);
+            router.push(`/trip/${trip.id}` as Href);
+          }}
         />
       ))}
       {!loading && error && trips.length > 0 ? (

@@ -15,6 +15,7 @@ import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { Skeleton } from '@/components/Skeleton';
+import { activityCache } from '@/lib/cache/activityCache';
 import { ApiError } from '@/lib/apiClient';
 import {
   enumerateDateRange,
@@ -85,19 +86,33 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<ItineraryActivity | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadForDay = useCallback(async (day: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await listActivities(tripId, day);
-      setActivities(result.activities);
-    } catch (loadError) {
-      setActivities([]);
-      setError(loadError instanceof ApiError ? loadError.message : 'Could not load the itinerary.');
-    } finally {
-      setLoading(false);
-    }
-  }, [tripId]);
+  const loadForDay = useCallback(
+    async (day: string, options?: { force?: boolean }) => {
+      const force = options?.force ?? false;
+      const cached = activityCache.get(tripId, day);
+      if (!force && activityCache.isFresh(tripId, day) && cached) {
+        setActivities(cached);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+      if (!cached?.length) {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const result = await listActivities(tripId, day);
+        activityCache.set(tripId, day, result.activities);
+        setActivities(result.activities);
+      } catch (loadError) {
+        setActivities([]);
+        setError(loadError instanceof ApiError ? loadError.message : 'Could not load the itinerary.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [tripId],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -182,11 +197,13 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
         await createActivity(tripId, payload);
       }
       setFormVisible(false);
+      activityCache.invalidateDay(tripId, payload.date);
       if (payload.date !== activeDay) {
+        activityCache.invalidateDay(tripId, activeDay);
         setSelectedDay(payload.date);
-        await loadForDay(payload.date);
+        await loadForDay(payload.date, { force: true });
       } else {
-        await loadForDay(activeDay);
+        await loadForDay(activeDay, { force: true });
       }
     } catch (saveError) {
       setFormError(
@@ -205,7 +222,8 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
     try {
       await deleteActivity(tripId, deleteTarget.id);
       setDeleteTarget(null);
-      await loadForDay(activeDay);
+      activityCache.invalidateDay(tripId, activeDay);
+      await loadForDay(activeDay, { force: true });
     } catch (deleteError) {
       setError(
         deleteError instanceof ApiError ? deleteError.message : 'Could not delete this activity.',

@@ -16,6 +16,7 @@ const tripSchema = new Schema(
     endDate: { type: Date, required: true },
     description: { type: String, default: '', maxlength: 500 },
     coverImageUrl: { type: String, default: null, maxlength: 2048 },
+    coverObjectKey: { type: String, default: null, maxlength: 512 },
     ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     members: { type: [memberSchema], default: [] },
   },

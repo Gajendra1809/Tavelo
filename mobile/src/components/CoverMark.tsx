@@ -4,28 +4,25 @@ import {
   StyleSheet,
   Text,
   View,
-  type ImageSourcePropType,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { CachedImage } from '@/components/CachedImage';
 import { images } from '@/constants/images';
 import { colors, typography } from '@/theme';
 
 type CoverMarkProps = {
   uri?: string | null;
   label: string;
+  cacheKey?: string | null;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 };
 
-export function CoverMark({ uri, label, style, textStyle }: CoverMarkProps) {
+export function CoverMark({ uri, label, cacheKey, style, textStyle }: CoverMarkProps) {
   const [remoteFailed, setRemoteFailed] = useState(false);
   const showRemote = Boolean(uri) && !remoteFailed;
-  const source: ImageSourcePropType = showRemote
-    ? { uri: uri! }
-    : images.defaultTripCover;
-
   const [assetFailed, setAssetFailed] = useState(false);
 
   if (assetFailed) {
@@ -38,19 +35,23 @@ export function CoverMark({ uri, label, style, textStyle }: CoverMarkProps) {
 
   return (
     <View style={[styles.wrap, style]}>
-      <Image
-        accessibilityIgnoresInvertColors
-        accessibilityLabel={`${label} cover`}
-        source={source}
-        style={[styles.image, StyleSheet.absoluteFillObject]}
-        onError={() => {
-          if (showRemote) {
-            setRemoteFailed(true);
-          } else {
-            setAssetFailed(true);
-          }
-        }}
-      />
+      {showRemote ? (
+        <CachedImage
+          uri={uri!}
+          cacheKey={cacheKey ?? uri}
+          style={[styles.image, StyleSheet.absoluteFill]}
+          accessibilityLabel={`${label} cover`}
+          onError={() => setRemoteFailed(true)}
+        />
+      ) : (
+        <Image
+          accessibilityIgnoresInvertColors
+          accessibilityLabel={`${label} cover`}
+          source={images.defaultTripCover}
+          style={[styles.image, StyleSheet.absoluteFill]}
+          onError={() => setAssetFailed(true)}
+        />
+      )}
     </View>
   );
 }
