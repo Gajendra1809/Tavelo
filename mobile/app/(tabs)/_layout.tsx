@@ -1,5 +1,9 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { View } from 'react-native';
+import { fetchAndPublishUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import { SymbolView, type AndroidSymbol } from 'expo-symbols';
+import { AppTopBar } from '@/components/AppTopBar';
 import { colors } from '@/theme';
 
 const tabs: { name: 'index' | 'trips' | 'expenses' | 'memories' | 'profile'; title: string; icon: AndroidSymbol }[] =
@@ -12,8 +16,16 @@ const tabs: { name: 'index' | 'trips' | 'expenses' | 'memories' | 'profile'; tit
   ];
 
 export default function TabLayout() {
+  useFocusEffect(
+    useCallback(() => {
+      void fetchAndPublishUnreadCount();
+    }, []),
+  );
+
   return (
-    <Tabs
+    <View style={{ flex: 1 }}>
+      <AppTopBar />
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
@@ -48,5 +60,6 @@ export default function TabLayout() {
         />
       ))}
     </Tabs>
+    </View>
   );
 }

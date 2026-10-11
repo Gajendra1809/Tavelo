@@ -3,6 +3,7 @@ import { UserModel } from '../auth/user.model';
 import { loadUserSummaries, publicUserFromDocument } from '../users/user.service';
 import { TripModel } from '../trips/trip.model';
 import { AppError } from '../../utils/AppError';
+import { loadActorName, notifyTripInvitation } from '../notifications/notification.service';
 import { InvitationModel } from './invitation.model';
 import type { InviteInput } from './invitation.schema';
 
@@ -48,6 +49,14 @@ export async function inviteToTrip(
       inviterId: ownerId,
       inviteeId: invitee._id,
       status: 'pending',
+    });
+    await notifyTripInvitation({
+      inviteeId,
+      actorId: ownerId,
+      invitationId: invitation._id.toString(),
+      tripId: trip._id.toString(),
+      tripName: trip.name,
+      actorName: await loadActorName(ownerId),
     });
     return {
       id: invitation._id.toString(),

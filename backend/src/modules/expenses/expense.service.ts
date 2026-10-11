@@ -16,6 +16,12 @@ import {
   type MemberBalance,
   type SettlementSuggestion,
 } from './finance';
+import {
+  involvedUserIdsFromExpense,
+  loadActorName,
+  notifyExpenseEvent,
+  notifySettlementEvent,
+} from '../notifications/notification.service';
 import type { CreateExpenseInput, CreateSettlementInput, UpdateExpenseInput } from './expense.schema';
 
 export type ExpenseShareResponse = { userId: string; amountMinor: number; name: string };
@@ -92,6 +98,16 @@ export async function createExpense(
     shares: shares.map((share) => ({ userId: share.userId, amountMinor: share.amountMinor })),
     createdBy: userId,
   });
+  await notifyExpenseEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    tripId: trip._id.toString(),
+    tripName: trip.name,
+    expenseId: expense._id.toString(),
+    expenseDescription: expense.description,
+    recipientIds: involvedUserIdsFromExpense(expense),
+    kind: 'expense_created',
+  });
   return (await mapExpenses([expense]))[0]!;
 }
 
@@ -105,6 +121,8 @@ export async function updateExpense(
   const expense = await findExpenseDocument(tripId, expenseId);
   assertCanMutateExpense(userId, trip, expense);
   await assertExpenseLedgerUnlocked(trip._id);
+
+  const previousRecipientIds = involvedUserIdsFromExpense(expense);
 
   const memberIds = tripMemberIds(trip);
   const nextAmount = input.amountMinor ?? expense.amountMinor;
@@ -153,6 +171,18 @@ export async function updateExpense(
   }));
 
   await expense.save();
+  const nextRecipientIds = involvedUserIdsFromExpense(expense);
+  const unionRecipients = [...new Set([...previousRecipientIds, ...nextRecipientIds])];
+  await notifyExpenseEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    tripId: trip._id.toString(),
+    tripName: trip.name,
+    expenseId: expense._id.toString(),
+    expenseDescription: expense.description,
+    recipientIds: unionRecipients,
+    kind: 'expense_updated',
+  });
   return (await mapExpenses([expense]))[0]!;
 }
 
@@ -161,7 +191,20 @@ export async function deleteExpense(userId: string, tripId: string, expenseId: s
   const expense = await findExpenseDocument(tripId, expenseId);
   assertCanMutateExpense(userId, trip, expense);
   await assertExpenseLedgerUnlocked(trip._id);
+  const recipientIds = involvedUserIdsFromExpense(expense);
+  const description = expense.description;
+  const removedId = expense._id.toString();
   await expense.deleteOne();
+  await notifyExpenseEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    tripId: trip._id.toString(),
+    tripName: trip.name,
+    expenseId: removedId,
+    expenseDescription: description,
+    recipientIds,
+    kind: 'expense_deleted',
+  });
 }
 
 export async function getBalances(userId: string, tripId: string): Promise<BalancesResponse> {
@@ -247,6 +290,18 @@ export async function recordSettlement(
     createdBy: userId,
     status: 'recorded',
   });
+  await notifySettlementEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    tripId: trip._id.toString(),
+    tripName: trip.name,
+    settlementId: settlement._id.toString(),
+    payerId: input.payerId,
+    recipientId: input.recipientId,
+    amountMinor: input.amountMinor,
+    currency,
+    kind: 'settlement_recorded',
+  });
   return (await mapSettlements([settlement]))[0]!;
 }
 
@@ -267,6 +322,18 @@ export async function cancelSettlement(
   }
   settlement.status = 'cancelled';
   await settlement.save();
+  await notifySettlementEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    tripId: trip._id.toString(),
+    tripName: trip.name,
+    settlementId: settlement._id.toString(),
+    payerId: settlement.payerId.toString(),
+    recipientId: settlement.recipientId.toString(),
+    amountMinor: settlement.amountMinor,
+    currency: settlement.currency,
+    kind: 'settlement_cancelled',
+  });
   return (await mapSettlements([settlement]))[0]!;
 }
 

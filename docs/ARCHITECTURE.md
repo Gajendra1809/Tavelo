@@ -201,6 +201,12 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `POST` | `/api/v1/trips/:id/bookings/:bookingId/attachments/upload-intent` | Member prepares document upload (presigned PUT) |
 | `POST` | `/api/v1/trips/:id/bookings/:bookingId/attachments/complete` | Member registers uploaded object key on the booking |
 | `DELETE` | `/api/v1/trips/:id/bookings/:bookingId/attachments/:attachmentId` | Uploader, booking creator, or trip owner removes file |
+| `GET` | `/api/v1/notifications` | Authenticated user lists in-app notifications (newest first; `limit`, `cursor`) |
+| `GET` | `/api/v1/notifications/unread-count` | Unread count for the current user |
+| `PATCH` | `/api/v1/notifications/:notificationId/read` | Mark one notification read (recipient only) |
+| `PATCH` | `/api/v1/notifications/read-all` | Mark all notifications read for the current user |
+
+Notifications are created server-side when invitations are sent, bookings change, involved members’ expenses change, or settlement parties are affected. There is no client-created notification API, push, email, or WebSocket delivery in this phase.
 
 A missing or invalid token is 401. Error bodies do not include the trip. An invitation card for the recipient includes the trip name, destination, and inviter name.
 

@@ -18,6 +18,7 @@ import {
   assertBookingAttachmentObjectKey,
   buildBookingAttachmentObjectKey,
 } from '../storage/policy';
+import { loadActorName, notifyBookingEvent } from '../notifications/notification.service';
 import { BookingModel, type BookingAttachmentDocument, type BookingDocument } from './booking.model';
 import { toBookingResponse, type BookingResponse } from './booking.mapper';
 import type {
@@ -100,6 +101,15 @@ export async function createTripBooking(
     attachments: [],
   });
 
+  await notifyBookingEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    trip,
+    bookingId: doc._id.toString(),
+    bookingTitle: doc.title,
+    kind: 'booking_created',
+  });
+
   return mapBooking(doc);
 }
 
@@ -151,6 +161,14 @@ export async function updateTripBooking(
   }
 
   await doc.save();
+  await notifyBookingEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    trip,
+    bookingId: doc._id.toString(),
+    bookingTitle: doc.title,
+    kind: 'booking_updated',
+  });
   return mapBooking(doc);
 }
 
@@ -164,10 +182,20 @@ export async function deleteTripBooking(
   assertCanMutateBooking(userId, doc, trip.ownerId?.toString());
 
   const keys = doc.attachments.map((row) => row.objectKey);
+  const bookingTitle = doc.title;
+  const deletedBookingId = doc._id.toString();
   await BookingModel.deleteOne({ _id: doc._id });
   for (const key of keys) {
     await tryDeleteStoredObject(key);
   }
+  await notifyBookingEvent({
+    actorId: userId,
+    actorName: await loadActorName(userId),
+    trip,
+    bookingId: deletedBookingId,
+    bookingTitle,
+    kind: 'booking_deleted',
+  });
 }
 
 export async function createBookingAttachmentUploadIntent(
