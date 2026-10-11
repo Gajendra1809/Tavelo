@@ -1,131 +1,83 @@
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-import { createElement, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import { IosPickerSheet } from '@/components/IosPickerSheet';
+import { PickerTrigger } from '@/components/PickerTrigger';
+import type { DateFieldProps } from '@/components/pickerFieldTypes';
 import { formatDateInput, formatDisplayDate, parseDateInput } from '@/lib/dates';
-import { colors, radius, spacing, typography } from '@/theme';
 
-type DateFieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  error?: string;
-  minimumDate?: string;
-};
+export type { DateFieldProps } from '@/components/pickerFieldTypes';
 
-export function DateField({ label, value, onChange, error, minimumDate }: DateFieldProps) {
+export function DateField({
+  label,
+  value,
+  onChange,
+  error,
+  minimumDate,
+  maximumDate,
+  placeholder = 'Choose a date',
+  allowClear = false,
+}: DateFieldProps) {
   const [open, setOpen] = useState(false);
-  const selected = value ? parseDateInput(value) : new Date();
+  const [iosDraft, setIosDraft] = useState(() => (value ? parseDateInput(value) : new Date()));
 
-  function handleChange(event: DateTimePickerEvent, next?: Date) {
-    if (Platform.OS !== 'ios') {
-      setOpen(false);
+  useEffect(() => {
+    if (open && Platform.OS === 'ios') {
+      setIosDraft(value ? parseDateInput(value) : new Date());
     }
-    if (event.type === 'dismissed' || !next) {
-      return;
-    }
-    onChange(formatDateInput(next));
-  }
+  }, [open, value]);
+
+  useEffect(() => () => setOpen(false), []);
+
+  const minDate = minimumDate ? parseDateInput(minimumDate) : undefined;
+  const maxDate = maximumDate ? parseDateInput(maximumDate) : undefined;
 
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {Platform.OS === 'web'
-        ? createElement('input', {
-            type: 'date',
-            value,
-            min: minimumDate,
-            'aria-label': label,
-            onChange: (event: { target: { value: string } }) => onChange(event.target.value),
-            style: webInputStyle(Boolean(error)),
-          })
-        : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            onPress={() => setOpen(true)}
-            style={[styles.input, error ? styles.invalid : null]}
-          >
-            <Text style={value ? styles.value : styles.placeholder}>
-              {value ? formatDisplayDate(value) : 'Choose a date'}
-            </Text>
-          </Pressable>
-        )}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {open && Platform.OS !== 'web' ? (
-        <View>
+    <>
+      <PickerTrigger
+        label={label}
+        displayValue={value ? formatDisplayDate(value) : null}
+        placeholder={placeholder}
+        error={error}
+        onPress={() => setOpen(true)}
+        icon="calendar"
+        onClear={allowClear && value ? () => onChange('') : undefined}
+      />
+      {Platform.OS === 'ios' ? (
+        <IosPickerSheet
+          visible={open}
+          title={label}
+          onCancel={() => setOpen(false)}
+          onConfirm={() => {
+            onChange(formatDateInput(iosDraft));
+            setOpen(false);
+          }}
+        >
           <DateTimePicker
-            value={selected}
+            value={iosDraft}
             mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            minimumDate={minimumDate ? parseDateInput(minimumDate) : undefined}
-            onChange={handleChange}
+            display="spinner"
+            minimumDate={minDate}
+            maximumDate={maxDate}
+            onValueChange={(_event, date) => setIosDraft(date)}
+            themeVariant="light"
           />
-          {Platform.OS === 'ios' ? (
-            <Pressable accessibilityRole="button" onPress={() => setOpen(false)}>
-              <Text style={styles.done}>Done</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        </IosPickerSheet>
       ) : null}
-    </View>
+      {open && Platform.OS === 'android' ? (
+        <DateTimePicker
+          value={value ? parseDateInput(value) : new Date()}
+          mode="date"
+          display="default"
+          minimumDate={minDate}
+          maximumDate={maxDate}
+          onValueChange={(_event, date) => {
+            onChange(formatDateInput(date));
+            setOpen(false);
+          }}
+          onDismiss={() => setOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }
-
-function webInputStyle(invalid: boolean): Record<string, string | number> {
-  return {
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: invalid ? colors.danger : colors.line,
-    backgroundColor: colors.surface,
-    color: colors.ink,
-    fontSize: 16,
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.lg,
-    fontFamily: 'inherit',
-  };
-}
-
-const styles = StyleSheet.create({
-  field: {
-    gap: spacing.sm,
-  },
-  label: {
-    ...typography.label,
-    color: colors.ink,
-  },
-  input: {
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  invalid: {
-    borderColor: colors.danger,
-  },
-  value: {
-    ...typography.body,
-    color: colors.ink,
-  },
-  placeholder: {
-    ...typography.body,
-    color: colors.muted,
-  },
-  error: {
-    ...typography.body,
-    fontSize: 14,
-    color: colors.danger,
-  },
-  done: {
-    ...typography.label,
-    color: colors.primary,
-    textAlign: 'right',
-    paddingVertical: spacing.sm,
-  },
-});

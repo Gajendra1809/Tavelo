@@ -51,9 +51,9 @@ Status: shared itinerary on trip details is implemented.
 
 Depends on Phase 2. Itinerary display from Phase 3 is useful, but bookings and expenses only require a trip and its members.
 
-Status: shared trip expenses and settlements are implemented (integer minor units, equal/custom splits, balance ledger, suggested transfers, recorded payments). Profile avatars and trip covers upload to Supabase Storage (signed upload URL, keys in MongoDB). Bookings and payment gateways are still ahead.
+Status: shared trip expenses and settlements are implemented (integer minor units, equal/custom splits, balance ledger, suggested transfers, recorded payments). Profile avatars and trip covers upload to Supabase Storage (signed upload URL, keys in MongoDB). **Shared bookings with PDF/image attachments** are implemented (Phase 7). Payment gateways are still ahead.
 
-- Store flight, hotel, train, and other booking details entered by members.
+- Store flight, hotel, train, and other booking details entered by members. *(Done: trip bookings list, CRUD, attachments via Supabase.)*
 - Record shared expenses and who paid.
 - Calculate a settlement suggestion from those records.
 - Money math is server-side so every client sees the same result.

@@ -1,5 +1,6 @@
 import { TRIPS_PATH, USERS_ME_PATH } from '@/constants/api';
 import { apiRequest } from '@/lib/apiClient';
+import { putLocalFileToSignedUrl } from '@/services/storageUpload';
 import type { AuthUser } from '@/types/auth';
 import type { Trip } from '@/types/trip';
 
@@ -22,21 +23,6 @@ export function mimeFromUri(uri: string, fallback = 'image/jpeg'): string {
   return fallback;
 }
 
-async function putToPresignedUrl(uploadUrl: string, uri: string, contentType: string): Promise<void> {
-  const file = await fetch(uri);
-  const blob = await file.blob();
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': contentType,
-    },
-    body: blob,
-  });
-  if (!response.ok) {
-    throw new Error('Could not upload the image to storage.');
-  }
-}
-
 async function uploadViaIntent<T>(
   intentPath: string,
   completePath: string,
@@ -51,7 +37,7 @@ async function uploadViaIntent<T>(
     method: 'POST',
     body: JSON.stringify({ contentType, byteSize }),
   });
-  await putToPresignedUrl(intent.uploadUrl, uri, contentType);
+  await putLocalFileToSignedUrl(intent.uploadUrl, uri, contentType);
   return apiRequest<T>(completePath, {
     method: 'POST',
     body: JSON.stringify({ objectKey: intent.objectKey }),

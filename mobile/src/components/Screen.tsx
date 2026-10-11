@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme';
 import { Atmosphere } from './Atmosphere';
 
@@ -19,6 +19,9 @@ export function Screen({
   onRefresh,
   footer,
 }: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const footerInset = Math.max(insets.bottom, spacing.sm);
+
   return (
     <View style={styles.root}>
       <Atmosphere />
@@ -29,7 +32,10 @@ export function Screen({
         >
           <ScrollView
             style={styles.flex}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: footer ? spacing.xxl : spacing.xxl + footerInset },
+            ]}
             keyboardShouldPersistTaps="handled"
             refreshControl={
               onRefresh ? (
@@ -44,7 +50,11 @@ export function Screen({
           >
             {children}
           </ScrollView>
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
+          {footer ? (
+            <View style={[styles.footer, { paddingBottom: footerInset + spacing.md }]}>
+              {footer}
+            </View>
+          ) : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -68,11 +78,13 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
   footer: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    backgroundColor: colors.surface,
   },
 });

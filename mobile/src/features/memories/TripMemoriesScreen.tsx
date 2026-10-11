@@ -1,5 +1,6 @@
 import { useFocusEffect, useNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -25,7 +26,9 @@ import { MemoryViewerOverlay } from '@/features/memories/MemoryViewerOverlay';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
 import { filterMemoryItems, memoryCache } from '@/lib/cache/memoryCache';
 import { ApiError } from '@/lib/apiClient';
+import { logAppError, userFacingMessage } from '@/lib/errorReport';
 import { downloadTripMemoryItems } from '@/services/memoryDownload';
+import { resolveLocalByteSize } from '@/services/storageUpload';
 import {
   deleteTripMemory,
   listTripMemories,
@@ -41,6 +44,7 @@ type UploadQueueItem = {
   label: string;
   status: 'pending' | 'uploading' | 'done' | 'failed';
   error?: string;
+  errorDetails?: string;
 };
 
 type TripMemoriesScreenProps = {
@@ -202,7 +206,22 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
         { id: queueId, label: asset.fileName ?? 'Memory', status: 'pending' },
       ]);
       const contentType = asset.mimeType ?? memoryMimeFromUri(asset.uri);
-      const byteSize = asset.fileSize ?? 0;
+      const byteSize = await resolveLocalByteSize(asset.uri, asset.fileSize ?? 0);
+      if (byteSize <= 0) {
+        setUploadQueue((current) =>
+          current.map((row) =>
+            row.id === queueId
+              ? {
+                  ...row,
+                  status: 'failed',
+                  error: 'Could not read the selected file size.',
+                  errorDetails: logAppError('trip memory upload', new Error('byteSize=0')),
+                }
+              : row,
+          ),
+        );
+        continue;
+      }
       try {
         setUploadQueue((current) =>
           current.map((row) => (row.id === queueId ? { ...row, status: 'uploading' } : row)),
@@ -228,10 +247,11 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
           current.map((row) => (row.id === queueId ? { ...row, status: 'done' } : row)),
         );
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : 'Upload failed.';
+        const message = userFacingMessage(err, 'Upload failed.');
+        const errorDetails = logAppError('trip memory upload', err);
         setUploadQueue((current) =>
           current.map((row) =>
-            row.id === queueId ? { ...row, status: 'failed', error: message } : row,
+            row.id === queueId ? { ...row, status: 'failed', error: message, errorDetails } : row,
           ),
         );
       }
@@ -437,10 +457,20 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
         {uploadQueue.length > 0 ? (
           <View style={styles.queue}>
             {uploadQueue.map((row) => (
-              <Text key={row.id} style={styles.queueLine}>
-                {row.label}: {row.status}
-                {row.error ? ` — ${row.error}` : ''}
-              </Text>
+              <View key={row.id} style={styles.queueRow}>
+                <Text style={styles.queueLine}>
+                  {row.label}: {row.status}
+                  {row.error ? ` — ${row.error}` : ''}
+                </Text>
+                {row.status === 'failed' && row.errorDetails ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => void Clipboard.setStringAsync(row.errorDetails ?? '')}
+                  >
+                    <Text style={styles.queueCopy}>Copy error details</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             ))}
           </View>
         ) : null}
@@ -630,10 +660,18 @@ const styles = StyleSheet.create({
   queue: {
     gap: 4,
   },
+  queueRow: {
+    gap: 2,
+  },
   queueLine: {
     ...typography.body,
     fontSize: 13,
     color: colors.muted,
+  },
+  queueCopy: {
+    ...typography.label,
+    fontSize: 12,
+    color: colors.primary,
   },
   filtersRow: {
     flexDirection: 'row',

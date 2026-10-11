@@ -13,11 +13,13 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
 import { tripCache } from '@/lib/cache/tripCache';
 import { ApiError } from '@/lib/apiClient';
+import { logAppError, userFacingMessage } from '@/lib/errorReport';
 import {
   deleteTripCover,
   mimeFromUri,
   uploadTripCoverFromUri,
 } from '@/services/mediaService';
+import { resolveLocalByteSize } from '@/services/storageUpload';
 import { updateTrip } from '@/services/tripService';
 import { colors, radius, spacing, typography } from '@/theme';
 import { TripFormFields } from './TripFormFields';
@@ -126,7 +128,7 @@ export function EditTripScreen() {
       return;
     }
     const asset = picked.assets[0];
-    const byteSize = asset.fileSize ?? 0;
+    const byteSize = await resolveLocalByteSize(asset.uri, asset.fileSize ?? 0);
     if (byteSize <= 0) {
       setCoverError('Could not read the selected image size.');
       return;
@@ -140,9 +142,8 @@ export function EditTripScreen() {
       setCoverUrl(updated.coverImageUrl);
       setCoverLabel(updated.destination);
     } catch (error) {
-      setCoverError(
-        error instanceof ApiError ? error.message : 'Could not update the trip cover.',
-      );
+      logAppError('trip cover upload', error);
+      setCoverError(userFacingMessage(error, 'Could not update the trip cover.'));
     } finally {
       setCoverBusy(false);
     }

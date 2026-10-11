@@ -25,6 +25,7 @@ const storageSchema = z.object({
   TRIP_COVER_MAX_BYTES: positiveInt(10_485_760, 104_857_600),
   MEMORY_IMAGE_MAX_BYTES: positiveInt(15_728_640, 104_857_600),
   MEMORY_VIDEO_MAX_BYTES: positiveInt(104_857_600, 524_288_000),
+  BOOKING_ATTACHMENT_MAX_BYTES: positiveInt(15_728_640, 104_857_600),
 });
 
 export type StorageConfig = {
@@ -37,6 +38,7 @@ export type StorageConfig = {
   tripCoverMaxBytes: number;
   memoryImageMaxBytes: number;
   memoryVideoMaxBytes: number;
+  bookingAttachmentMaxBytes: number;
 };
 
 export class StorageConfigError extends Error {
@@ -77,6 +79,7 @@ export function parseStorageConfig(source: NodeJS.ProcessEnv): StorageConfig {
       tripCoverMaxBytes: parsed.data.TRIP_COVER_MAX_BYTES,
       memoryImageMaxBytes: parsed.data.MEMORY_IMAGE_MAX_BYTES,
       memoryVideoMaxBytes: parsed.data.MEMORY_VIDEO_MAX_BYTES,
+      bookingAttachmentMaxBytes: parsed.data.BOOKING_ATTACHMENT_MAX_BYTES,
     };
   }
 
@@ -111,6 +114,7 @@ export function parseStorageConfig(source: NodeJS.ProcessEnv): StorageConfig {
     tripCoverMaxBytes: parsed.data.TRIP_COVER_MAX_BYTES,
     memoryImageMaxBytes: parsed.data.MEMORY_IMAGE_MAX_BYTES,
     memoryVideoMaxBytes: parsed.data.MEMORY_VIDEO_MAX_BYTES,
+    bookingAttachmentMaxBytes: parsed.data.BOOKING_ATTACHMENT_MAX_BYTES,
   };
 }
 

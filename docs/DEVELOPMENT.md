@@ -41,6 +41,7 @@ Set these values in `backend/.env`:
 | `TRIP_COVER_MAX_BYTES` | `10485760` (10 MB)                                                          | No.                                             |
 | `MEMORY_IMAGE_MAX_BYTES` | `15728640` (15 MB)                                                        | No.                                             |
 | `MEMORY_VIDEO_MAX_BYTES` | `104857600` (100 MB)                                                      | No.                                             |
+| `BOOKING_ATTACHMENT_MAX_BYTES` | `15728640` (15 MB)                                                  | No.                                             |
 
 Replace `USER`, `PASSWORD`, and `CLUSTER` with the Atlas database user and host. Do not put this file in Git.
 
@@ -184,6 +185,60 @@ npm run start --prefix mobile -- --clear
 
 Scan the QR code with Expo Go on Android. The phone needs a Play Store Expo Go build that supports SDK 57.
 
+## Android emulator (Windows — recommended instead of Chrome)
+
+There is **no iOS Simulator on Windows**. For a phone-like preview on this PC, use the **Android Emulator** from Android Studio. Expo Go in the emulator behaves like a real device (date pickers, document picker, etc.). Chrome (`w` in Expo) is only useful for quick layout checks.
+
+### One-time setup
+
+1. Install [Android Studio](https://developer.android.com/studio) (includes the SDK and AVD Manager).
+2. Open **Android Studio** → **More Actions** → **Virtual Device Manager** → **Create device** (e.g. Pixel 6) → pick a **system image** (API 34 or 35) → finish.
+3. Start the virtual device (▶ on the AVD). Wait until the Android home screen appears.
+4. On the emulator, open **Play Store**, sign in, and install **Expo Go** (must support **SDK 57**).
+5. Point the app at the API on your computer (emulator special address):
+
+   ```text
+   EXPO_PUBLIC_API_URL=http://10.0.2.2:4000
+   ```
+
+   Put that in `mobile/.env`, then restart Expo. `10.0.2.2` is how the emulator reaches your PC’s `localhost:4000`.
+
+6. Optional — so Expo finds the emulator from PowerShell, add SDK tools to your user PATH (adjust if Android Studio used a different folder):
+
+   ```powershell
+   [Environment]::SetEnvironmentVariable("ANDROID_HOME", "$env:LOCALAPPDATA\Android\Sdk", "User")
+   ```
+
+   Add `%LOCALAPPDATA%\Android\Sdk\platform-tools` and `%LOCALAPPDATA%\Android\Sdk\emulator` to **User PATH**, then open a **new** terminal.
+
+### Daily workflow
+
+Terminal 1 — API (already listening on `0.0.0.0:4000`):
+
+```powershell
+npm run dev:backend
+```
+
+Terminal 2 — Expo, with the emulator running:
+
+```powershell
+npm run dev:mobile
+```
+
+In the Expo terminal, press **`a`** to open the project in Expo Go on the emulator. Or scan the QR from the emulator’s camera if prompted.
+
+If **`a`** says no device found, run `adb devices` in a new shell (after PATH setup). You should see one `emulator-5554` (or similar) as `device`.
+
+### Emulator vs physical phone vs web
+
+| Target | `EXPO_PUBLIC_API_URL` | How to launch |
+| --- | --- | --- |
+| Android emulator | `http://10.0.2.2:4000` | Expo → **`a`** |
+| Physical phone (same Wi‑Fi) | `http://YOUR_LAN_IP:4000` | Expo Go → scan QR |
+| Chrome (limited) | often `http://localhost:4000` | Expo → **`w`** — not recommended for full UX |
+
+You do **not** need a firewall rule for the emulator → host API; you **do** need it for a physical phone (see below).
+
 ## Allow the phone through the firewall
 
 Windows often blocks inbound connections to Node. Allow TCP port 4000 while you are developing. An elevated PowerShell window:
@@ -231,6 +286,45 @@ Backend tests do not need Atlas. They cover configuration parsing, CORS decision
 ## Android cleartext HTTP
 
 Local development uses `http://`, not HTTPS. Expo Go permits that. A later development build gets `android:usesCleartextTraffic` from `mobile/plugins/withCleartextTraffic.js` unless `APP_ENV=production` is set when Expo evaluates `app.config.ts`. Release builds should use HTTPS and should not enable cleartext.
+
+## Mobile file picks and storage uploads
+
+Presigned uploads are easy to break on **native** if code assumes browser or desktop file behavior. Treat this as a checklist whenever you add or change picks, attachments, avatars, covers, or memories.
+
+### Conventions (must follow)
+
+1. **One pipeline** — All PUTs to Supabase go through `mobile/src/services/storageUpload.ts`. Do not add parallel upload helpers that read local URIs with `fetch().blob()` on iOS/Android.
+2. **Stage early** — After the user picks a file, copy it to app cache (`stageLocalFileForUpload`) before any network call. Picker temp paths (especially `DocumentPicker/` on Android Expo Go) may become unreadable within milliseconds.
+3. **Right picker**
+   - **Photos/videos from gallery** → `expo-image-picker` (memories, avatar, trip cover, booking **Photo library**).
+   - **PDFs and files** → `expo-document-picker`. On Android use `copyToCacheDirectory: false` and stage from the returned URI; offer gallery separately for images (`promptBookingAttachmentSource`).
+4. **MIME** — Normalize on the client (`mobile/src/lib/mimeTypes.ts`). On **complete**, the backend resolves `application/octet-stream` using the object key extension (`resolveStoredContentType` in `backend/src/modules/storage/policy.ts`).
+5. **Logging** — Use `logAppError(context, err)` for handled failures so Metro and LogBox show a `[Tavelo]` block with context (e.g. `booking attachment upload`).
+
+### Manual test before merge (upload features)
+
+| Step | Pass criteria |
+| --- | --- |
+| Android Expo Go, physical phone | Pick file → upload succeeds; attachment appears or memory/cover updates. |
+| Backend terminal | `upload-intent` **201**, then `complete` **201** (not 400 validation on JPEG). |
+| Metro terminal | No `[Tavelo]` error for the flow you changed. |
+| Optional regression | Avatar, trip cover, memory upload if you touched shared `storageUpload.ts`. |
+
+Chrome (`w`) is **not** sufficient for sign-off on pickers or uploads.
+
+Cursor agents load `.cursor/rules/mobile-native-uploads.mdc` when editing mobile features and services.
+
+## Errors and uploads in Expo Go
+
+Upload and API failures are logged with **`console.error`** in development under the prefix **`[Tavelo]`**. Expo surfaces these the same way as other console warnings:
+
+1. **On the phone (LogBox)** — A yellow/red banner may appear after a failed upload. Tap it to expand the message. Lines start with `[Tavelo] booking attachment upload:` (or similar) plus a full text block (API URL, HTTP code, message).
+2. **On your PC (best for sharing)** — Keep the terminal running `npm run dev:mobile` open. When the phone hits an error, the **same `[Tavelo]` block** is printed there. Copy from that terminal into Cursor chat.
+3. **Dev menu** — Shake the device (or press `m` in the Metro terminal) → **Open JS debugger** / **Toggle element inspector**. JS logs still primarily stream to the Metro terminal unless you attach Chrome DevTools.
+
+The in-app **Copy error details** button duplicates that report for paste into chat when you are not at the computer.
+
+Uncaught crashes show a red screen; handled upload errors only appear via LogBox/`console.error` and the red error panel in the app.
 
 ## Troubleshooting
 

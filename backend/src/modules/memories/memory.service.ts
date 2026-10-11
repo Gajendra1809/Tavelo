@@ -11,8 +11,11 @@ import {
   tryDeleteStoredObject,
 } from '../storage/objectStore';
 import {
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_MEMORY_CONTENT_TYPES,
   assertAllowedContentType,
   assertAllowedMemoryContentType,
+  resolveStoredContentType,
   assertTripMemoryObjectKey,
   buildTripMemoryObjectKey,
   maxBytesForMemoryContentType,
@@ -140,14 +143,19 @@ export async function createTripMemory(
   }
 
   const head = await headStoredObject(input.objectKey);
+  const contentType = resolveStoredContentType(
+    head.contentType,
+    input.objectKey,
+    ALLOWED_MEMORY_CONTENT_TYPES,
+  );
   try {
-    assertAllowedMemoryContentType(head.contentType);
+    assertAllowedMemoryContentType(contentType);
   } catch (error) {
     await tryDeleteStoredObject(input.objectKey);
     throw validationError(error);
   }
   const maxBytes = maxBytesForMemoryContentType(
-    head.contentType,
+    contentType,
     config.memoryImageMaxBytes,
     config.memoryVideoMaxBytes,
   );
@@ -156,13 +164,18 @@ export async function createTripMemory(
     throw new AppError(400, 'VALIDATION_ERROR', 'The uploaded file does not match the request.');
   }
 
-  const mediaType = memoryMediaTypeForContentType(head.contentType);
+  const mediaType = memoryMediaTypeForContentType(contentType);
   let thumbnailObjectKey: string | null = null;
   if (input.thumbnailObjectKey) {
     try {
       assertTripMemoryObjectKey(tripId, input.thumbnailObjectKey);
       const thumbHead = await headStoredObject(input.thumbnailObjectKey);
-      assertAllowedContentType(thumbHead.contentType);
+      const thumbType = resolveStoredContentType(
+        thumbHead.contentType,
+        input.thumbnailObjectKey,
+        ALLOWED_IMAGE_TYPES,
+      );
+      assertAllowedContentType(thumbType);
       if (thumbHead.contentLength <= 0 || thumbHead.contentLength > config.avatarMaxBytes) {
         await tryDeleteStoredObject(input.objectKey);
         await tryDeleteStoredObject(input.thumbnailObjectKey);

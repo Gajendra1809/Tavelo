@@ -67,15 +67,63 @@ export function formatDayTab(value: string): string {
   });
 }
 
+export function formatTimeInput(date: Date): string {
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${hour}:${minute}`;
+}
+
+export function defaultTimeDate(hour: number, minute: number): Date {
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  return date;
+}
+
+export function parseTimeInput(value: string): Date {
+  const [hourPart, minutePart] = value.split(':');
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+  return defaultTimeDate(Number.isFinite(hour) ? hour : 0, Number.isFinite(minute) ? minute : 0);
+}
+
+export function formatDisplayTime(value: string): string {
+  return parseTimeInput(value).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export function isClockTime(value: string): boolean {
+  if (!/^\d{2}:\d{2}$/.test(value)) {
+    return false;
+  }
+  const [hour, minute] = value.split(':').map((part) => Number(part));
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
+export function normalizeOptionalTime(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function displayClock(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  return isClockTime(value) ? formatDisplayTime(value) : value;
+}
+
 export function formatActivityTime(start: string | null, end: string | null): string {
-  if (start && end) {
-    return `${start} – ${end}`;
+  const startLabel = displayClock(start);
+  const endLabel = displayClock(end);
+  if (startLabel && endLabel) {
+    return `${startLabel} – ${endLabel}`;
   }
-  if (start) {
-    return start;
+  if (startLabel) {
+    return startLabel;
   }
-  if (end) {
-    return `Until ${end}`;
+  if (endLabel) {
+    return `Until ${endLabel}`;
   }
   return 'Flexible';
 }

@@ -4,6 +4,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
+import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
@@ -11,6 +12,7 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { Skeleton } from '@/components/Skeleton';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useBottomSafePadding } from '@/hooks/useBottomSafePadding';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
 import { expenseCache, type ExpenseBundle } from '@/lib/cache/expenseCache';
 import { ApiError } from '@/lib/apiClient';
@@ -36,6 +38,7 @@ export function TripExpensesScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const tripId = Array.isArray(params.id) ? params.id[0] : params.id;
   const { user } = useAuth();
+  const modalBottomPad = useBottomSafePadding(spacing.xxl);
 
   const { trip, refresh: refreshTrip } = useTripFromCache(tripId);
   const cachedBundle = tripId ? expenseCache.get(tripId) : null;
@@ -416,7 +419,7 @@ export function TripExpensesScreen() {
 
       <Modal visible={formVisible} animationType="slide" transparent onRequestClose={() => setFormVisible(false)}>
         <View style={styles.modalBackdrop}>
-          <ScrollView contentContainerStyle={styles.modalCard}>
+          <ScrollView contentContainerStyle={[styles.modalCard, { paddingBottom: modalBottomPad }]}>
             <Text style={styles.modalTitle}>Add expense</Text>
             <FormField label="Description" value={description} onChangeText={setDescription} placeholder="Dinner" />
             <FormField
@@ -426,12 +429,12 @@ export function TripExpensesScreen() {
               placeholder="1250.00"
               keyboardType="decimal-pad"
             />
-            <FormField
+            <DateField
               label="Date"
               value={expenseDate}
-              onChangeText={setExpenseDate}
-              placeholder="YYYY-MM-DD"
-              autoCapitalize="none"
+              onChange={setExpenseDate}
+              minimumDate={trip?.startDate}
+              maximumDate={trip?.endDate}
             />
             <Text style={styles.fieldLabel}>Category</Text>
             <View style={styles.chipRow}>

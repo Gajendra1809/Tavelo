@@ -17,7 +17,9 @@ import { useHealthCheck } from '@/hooks/useHealthCheck';
 import { ApiError } from '@/lib/apiClient';
 import { isLoopbackUrl, readApiConfig } from '@/lib/config';
 import { applyUserUpdate } from '@/lib/session';
+import { logAppError, userFacingMessage } from '@/lib/errorReport';
 import { deleteAvatar, mimeFromUri, uploadAvatarFromUri } from '@/services/mediaService';
+import { resolveLocalByteSize } from '@/services/storageUpload';
 import { colors, spacing, surfaceCard, typography } from '@/theme';
 import { HealthResult } from '../home/HealthResult';
 
@@ -54,7 +56,7 @@ export function ProfileScreen() {
       return;
     }
     const asset = picked.assets[0];
-    const byteSize = asset.fileSize ?? 0;
+    const byteSize = await resolveLocalByteSize(asset.uri, asset.fileSize ?? 0);
     if (byteSize <= 0) {
       setPhotoError('Could not read the selected image size.');
       return;
@@ -66,9 +68,8 @@ export function ProfileScreen() {
       profileCache.invalidate();
       await applyUserUpdate(updated);
     } catch (error) {
-      setPhotoError(
-        error instanceof ApiError ? error.message : 'Could not update your profile photo.',
-      );
+      logAppError('profile avatar upload', error);
+      setPhotoError(userFacingMessage(error, 'Could not update your profile photo.'));
     } finally {
       setPhotoBusy(false);
     }

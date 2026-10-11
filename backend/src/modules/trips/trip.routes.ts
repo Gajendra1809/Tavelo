@@ -75,6 +75,28 @@ import {
   type MemoryUploadIntentInput,
   type UpdateMemoryCaptionInput,
 } from '../memories/memory.schema';
+import {
+  completeBookingAttachment,
+  createBookingAttachmentUploadIntent,
+  createTripBooking,
+  deleteBookingAttachment,
+  deleteTripBooking,
+  getTripBooking,
+  listTripBookings,
+  updateTripBooking,
+} from '../bookings/booking.service';
+import {
+  bookingAttachmentUploadIntentSchema,
+  completeBookingAttachmentSchema,
+  createBookingSchema,
+  listBookingsQuerySchema,
+  updateBookingSchema,
+  type BookingAttachmentUploadIntentInput,
+  type CompleteBookingAttachmentInput,
+  type CreateBookingInput,
+  type ListBookingsQuery,
+  type UpdateBookingInput,
+} from '../bookings/booking.schema';
 import { createTrip, deleteTrip, getTrip, listTrips, updateTrip } from './trip.service';
 
 export const tripRouter = Router();
@@ -303,6 +325,127 @@ tripRouter.delete(
   asyncHandler(async (req, res) => {
     await deleteExpense(currentUserId(req), paramId(req.params.id), paramId(req.params.expenseId));
     sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.get(
+  '/:id/bookings',
+  validate({ query: listBookingsQuerySchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await listTripBookings(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.query as ListBookingsQuery,
+      ),
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/bookings',
+  validate({ body: createBookingSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await createTripBooking(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.body as CreateBookingInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.get(
+  '/:id/bookings/:bookingId',
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await getTripBooking(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.bookingId),
+      ),
+    );
+  }),
+);
+
+tripRouter.patch(
+  '/:id/bookings/:bookingId',
+  validate({ body: updateBookingSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await updateTripBooking(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.bookingId),
+        req.validated?.body as UpdateBookingInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/bookings/:bookingId',
+  asyncHandler(async (req, res) => {
+    await deleteTripBooking(
+      currentUserId(req),
+      paramId(req.params.id),
+      paramId(req.params.bookingId),
+    );
+    sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.post(
+  '/:id/bookings/:bookingId/attachments/upload-intent',
+  validate({ body: bookingAttachmentUploadIntentSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await createBookingAttachmentUploadIntent(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.bookingId),
+        req.validated?.body as BookingAttachmentUploadIntentInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/bookings/:bookingId/attachments/complete',
+  validate({ body: completeBookingAttachmentSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await completeBookingAttachment(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.bookingId),
+        req.validated?.body as CompleteBookingAttachmentInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/bookings/:bookingId/attachments/:attachmentId',
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await deleteBookingAttachment(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.bookingId),
+        paramId(req.params.attachmentId),
+      ),
+    );
   }),
 );
 

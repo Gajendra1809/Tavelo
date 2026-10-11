@@ -8,7 +8,9 @@ import {
   tryDeleteStoredObject,
 } from '../storage/objectStore';
 import {
+  ALLOWED_IMAGE_TYPES,
   assertAllowedContentType,
+  resolveStoredContentType,
   assertTripCoverObjectKey,
   buildTripCoverObjectKey,
   maxBytesForKind,
@@ -59,8 +61,13 @@ export async function completeTripCoverUpload(
   }
 
   const head = await headStoredObject(input.objectKey);
+  const contentType = resolveStoredContentType(
+    head.contentType,
+    input.objectKey,
+    ALLOWED_IMAGE_TYPES,
+  );
   try {
-    assertAllowedContentType(head.contentType);
+    assertAllowedContentType(contentType);
   } catch (error) {
     throw validationError(error);
   }

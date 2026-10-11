@@ -1,7 +1,10 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect, useNavigation } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  BackHandler,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,16 +14,21 @@ import {
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
+import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
+import { TimeField } from '@/components/TimeField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { Skeleton } from '@/components/Skeleton';
+import { useBottomSafePadding } from '@/hooks/useBottomSafePadding';
 import { activityCache } from '@/lib/cache/activityCache';
 import { ApiError } from '@/lib/apiClient';
 import {
   enumerateDateRange,
   formatActivityTime,
   formatDayTab,
+  isClockTime,
+  normalizeOptionalTime,
   todayDateInput,
 } from '@/lib/dates';
 import {
@@ -47,20 +55,9 @@ const emptyForm = (date: string): ActivityFormValues => ({
   notes: '',
 });
 
-function normalizeTime(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function isClockTime(value: string): boolean {
-  if (!/^\d{2}:\d{2}$/.test(value)) {
-    return false;
-  }
-  const [hour, minute] = value.split(':').map((part) => Number(part));
-  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
-}
-
 export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
+  const navigation = useNavigation();
+  const modalBottomPad = useBottomSafePadding(spacing.xxl);
   const days = useMemo(() => enumerateDateRange(startDate, endDate), [startDate, endDate]);
   const defaultDay = useMemo(() => {
     const today = todayDateInput();
@@ -125,6 +122,13 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
     void loadForDay(day);
   }
 
+  function closeForm() {
+    setFormVisible(false);
+    setEditing(null);
+    setFormErrors({});
+    setFormError(null);
+  }
+
   function openCreate() {
     setEditing(null);
     setFormValues(emptyForm(activeDay));
@@ -141,12 +145,34 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
       date: activity.date,
       startTime: activity.startTime ?? '',
       endTime: activity.endTime ?? '',
-      notes: activity.notes,
+      notes: activity.notes ?? '',
     });
     setFormErrors({});
     setFormError(null);
     setFormVisible(true);
   }
+
+  useEffect(() => {
+    if (!formVisible) {
+      return;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeForm();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [formVisible]);
+
+  useEffect(() => {
+    if (!formVisible) {
+      return;
+    }
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      event.preventDefault();
+      closeForm();
+    });
+    return unsubscribe;
+  }, [formVisible, navigation]);
 
   function validateForm(values: ActivityFormValues): Partial<Record<keyof ActivityFormValues, string>> {
     const next: Partial<Record<keyof ActivityFormValues, string>> = {};
@@ -158,13 +184,13 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
     } else if (values.date < startDate || values.date > endDate) {
       next.date = 'Date must fall within the trip.';
     }
-    const start = normalizeTime(values.startTime);
-    const end = normalizeTime(values.endTime);
+    const start = normalizeOptionalTime(values.startTime);
+    const end = normalizeOptionalTime(values.endTime);
     if (start && !isClockTime(start)) {
-      next.startTime = 'Use a time like 09:30.';
+      next.startTime = 'Choose a valid start time.';
     }
     if (end && !isClockTime(end)) {
-      next.endTime = 'Use a time like 17:00.';
+      next.endTime = 'Choose a valid end time.';
     }
     if (start && end && end < start) {
       next.endTime = 'End time must be on or after the start time.';
@@ -185,8 +211,8 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
       title: formValues.title.trim(),
       location: formValues.location.trim() ? formValues.location.trim() : null,
       date: formValues.date,
-      startTime: normalizeTime(formValues.startTime),
-      endTime: normalizeTime(formValues.endTime),
+      startTime: normalizeOptionalTime(formValues.startTime),
+      endTime: normalizeOptionalTime(formValues.endTime),
       notes: formValues.notes.trim(),
     };
 
@@ -196,7 +222,7 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
       } else {
         await createActivity(tripId, payload);
       }
-      setFormVisible(false);
+      closeForm();
       activityCache.invalidateDay(tripId, payload.date);
       if (payload.date !== activeDay) {
         activityCache.invalidateDay(tripId, activeDay);
@@ -293,78 +319,96 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
           ))
         : null}
 
-      <Modal visible={formVisible} animationType="slide" transparent onRequestClose={() => setFormVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{editing ? 'Edit activity' : 'Add activity'}</Text>
-            <FormField
-              label="Title"
-              value={formValues.title}
-              onChangeText={(value) => {
-                setFormValues((current) => ({ ...current, title: value }));
-                setFormErrors((current) => ({ ...current, title: undefined }));
-              }}
-              error={formErrors.title}
-              placeholder="Fort walk"
-            />
-            <FormField
-              label="Location"
-              value={formValues.location}
-              onChangeText={(value) => setFormValues((current) => ({ ...current, location: value }))}
-              placeholder="Galle Fort"
-            />
-            <FormField
-              label="Date"
-              value={formValues.date}
-              onChangeText={(value) => {
-                setFormValues((current) => ({ ...current, date: value }));
-                setFormErrors((current) => ({ ...current, date: undefined }));
-              }}
-              error={formErrors.date}
-              placeholder="YYYY-MM-DD"
-              autoCapitalize="none"
-            />
-            <FormField
-              label="Start time"
-              value={formValues.startTime}
-              onChangeText={(value) => {
-                setFormValues((current) => ({ ...current, startTime: value }));
-                setFormErrors((current) => ({ ...current, startTime: undefined, endTime: undefined }));
-              }}
-              error={formErrors.startTime}
-              placeholder="09:30"
-              autoCapitalize="none"
-            />
-            <FormField
-              label="End time"
-              value={formValues.endTime}
-              onChangeText={(value) => {
-                setFormValues((current) => ({ ...current, endTime: value }));
-                setFormErrors((current) => ({ ...current, endTime: undefined }));
-              }}
-              error={formErrors.endTime}
-              placeholder="11:00"
-              autoCapitalize="none"
-            />
-            <FormField
-              label="Notes"
-              value={formValues.notes}
-              onChangeText={(value) => setFormValues((current) => ({ ...current, notes: value }))}
-              placeholder="Optional details"
-              multiline
-            />
-            {formError ? <ErrorState title="Could not save" message={formError} /> : null}
-            <View style={styles.modalActions}>
-              <SecondaryButton label="Cancel" onPress={() => setFormVisible(false)} disabled={saving} />
-              <PrimaryButton
-                label={editing ? 'Save changes' : 'Add activity'}
-                onPress={() => void submitForm()}
-                loading={saving}
-                disabled={saving}
-              />
+      <Modal
+        visible={formVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={closeForm}
+        statusBarTranslucent
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <Pressable accessibilityRole="button" accessibilityLabel="Close form" style={styles.modalDismiss} onPress={closeForm} />
+          {formVisible ? (
+            <View style={styles.modalCard}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.modalScroll, { paddingBottom: modalBottomPad }]}
+              >
+                <Text style={styles.modalTitle}>{editing ? 'Edit activity' : 'Add activity'}</Text>
+                <FormField
+                  label="Title"
+                  value={formValues.title}
+                  onChangeText={(value) => {
+                    setFormValues((current) => ({ ...current, title: value }));
+                    setFormErrors((current) => ({ ...current, title: undefined }));
+                  }}
+                  error={formErrors.title}
+                  placeholder="Fort walk"
+                />
+                <FormField
+                  label="Location"
+                  value={formValues.location}
+                  onChangeText={(value) => setFormValues((current) => ({ ...current, location: value }))}
+                  placeholder="Galle Fort"
+                />
+                <DateField
+                  label="Date"
+                  value={formValues.date}
+                  onChange={(value) => {
+                    setFormValues((current) => ({ ...current, date: value }));
+                    setFormErrors((current) => ({ ...current, date: undefined }));
+                  }}
+                  error={formErrors.date}
+                  minimumDate={startDate}
+                  maximumDate={endDate}
+                />
+                <TimeField
+                  label="Start time"
+                  value={formValues.startTime}
+                  onChange={(value) => {
+                    setFormValues((current) => ({ ...current, startTime: value }));
+                    setFormErrors((current) => ({ ...current, startTime: undefined, endTime: undefined }));
+                  }}
+                  error={formErrors.startTime}
+                  placeholder="Optional"
+                  allowClear
+                />
+                <TimeField
+                  label="End time"
+                  value={formValues.endTime}
+                  onChange={(value) => {
+                    setFormValues((current) => ({ ...current, endTime: value }));
+                    setFormErrors((current) => ({ ...current, endTime: undefined }));
+                  }}
+                  error={formErrors.endTime}
+                  placeholder="Optional"
+                  allowClear
+                />
+                <FormField
+                  label="Notes"
+                  value={formValues.notes}
+                  onChangeText={(value) => setFormValues((current) => ({ ...current, notes: value }))}
+                  placeholder="Optional details"
+                  multiline
+                />
+                {formError ? <ErrorState title="Could not save" message={formError} /> : null}
+                <View style={styles.modalActions}>
+                  <SecondaryButton label="Cancel" onPress={closeForm} disabled={saving} />
+                  <PrimaryButton
+                    label={editing ? 'Save changes' : 'Add activity'}
+                    onPress={() => void submitForm()}
+                    loading={saving}
+                    disabled={saving}
+                  />
+                </View>
+              </ScrollView>
             </View>
-          </View>
-        </View>
+          ) : null}
+        </KeyboardAvoidingView>
       </Modal>
 
       <ConfirmDialog
@@ -472,16 +516,22 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(30, 41, 59, 0.45)',
     justifyContent: 'flex-end',
+  },
+  modalDismiss: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(30, 41, 59, 0.45)',
   },
   modalCard: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
+    maxHeight: '92%',
+    zIndex: 1,
+  },
+  modalScroll: {
     padding: spacing.xl,
     gap: spacing.sm,
-    maxHeight: '90%',
   },
   modalTitle: {
     ...typography.title,

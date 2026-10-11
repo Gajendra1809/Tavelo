@@ -1,0 +1,41 @@
+---
+description: Mobile file picks, staging, and presigned uploads (Android Expo Go safe)
+globs: mobile/src/services/**/*,mobile/src/features/**/*
+alwaysApply: false
+---
+
+# Mobile uploads and file pickers
+
+Tavelo uploads use **upload-intent → PUT to presigned URL → complete**. On native devices, URI handling is fragile; follow these rules so Android Expo Go does not break.
+
+## Single upload pipeline
+
+- Put all presigned **PUT** logic in `mobile/src/services/storageUpload.ts` (`putLocalFileToSignedUrl`, `stageLocalFileForUpload`, `resolveLocalByteSize`).
+- Do **not** use `fetch(localUri).blob()` on iOS/Android for uploads — it often sends an empty body for `content://` and some `file://` URIs.
+- Use **`expo-file-system` `File.upload()`** (binary PUT) on native after staging; web stays on `fetch` + blob.
+
+## Staging before any async gap
+
+- Copy picker URIs into app cache (`tavelo-upload-*`) **immediately** after pick, and again at upload time if the URI is not already staged.
+- Never assume a picker `file://` path stays readable after `await apiRequest(...)` (upload-intent round trip).
+
+## Which picker to use
+
+| Content | Picker | Notes |
+| --- | --- | --- |
+| Gallery photos / videos | `expo-image-picker` | Same pattern as trip memories and avatars. |
+| PDFs and arbitrary files | `expo-document-picker` | On **Android**, set `copyToCacheDirectory: false` and stage via `content://` + `copyPickerUriToDest` fallbacks. |
+| Booking attachments UI | `promptBookingAttachmentSource` | Offer **Photo library** vs **PDF or file** — do not rely on document picker alone for JPEGs on Android. |
+
+## MIME and backend complete step
+
+- Normalize client MIME in `mobile/src/lib/mimeTypes.ts` before upload-intent (`image/jpg` → `image/jpeg`, infer from filename when needed).
+- Backend **complete** must use `resolveStoredContentType` in `backend/src/modules/storage/policy.ts` when Supabase reports `application/octet-stream`.
+
+## Before merging upload or picker changes
+
+1. Test on **physical Android Expo Go** (not Chrome): pick → upload → complete returns 201 in backend logs.
+2. Confirm Metro shows no `[Tavelo]` error; backend shows intent 201 then complete 201.
+3. Run `npm run typecheck --prefix mobile`.
+
+See `docs/DEVELOPMENT.md` — **Mobile file picks and storage uploads**.

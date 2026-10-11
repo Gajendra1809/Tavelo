@@ -3,9 +3,21 @@ import mongoose from 'mongoose';
 
 export const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+export const ALLOWED_BOOKING_DOCUMENT_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
 export const ALLOWED_MEMORY_VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime']);
 
-export type UploadKind = 'avatar' | 'trip_cover' | 'trip_memory';
+export const ALLOWED_MEMORY_CONTENT_TYPES = new Set([
+  ...ALLOWED_IMAGE_TYPES,
+  ...ALLOWED_MEMORY_VIDEO_TYPES,
+]);
+
+export type UploadKind = 'avatar' | 'trip_cover' | 'trip_memory' | 'booking_attachment';
 
 export type MemoryMediaType = 'image' | 'video';
 
@@ -21,8 +33,65 @@ export function extensionForContentType(contentType: string): string {
       return 'mp4';
     case 'video/quicktime':
       return 'mov';
+    case 'application/pdf':
+      return 'pdf';
     default:
       throw new Error('Unsupported content type.');
+  }
+}
+
+export function normalizeMimeType(contentType: string): string {
+  const lower = contentType.toLowerCase().trim();
+  if (lower === 'image/jpg') {
+    return 'image/jpeg';
+  }
+  return lower;
+}
+
+/** When storage returns application/octet-stream, infer type from the object key we issued. */
+export function inferContentTypeFromObjectKey(objectKey: string): string | null {
+  const lower = objectKey.toLowerCase();
+  if (lower.endsWith('.pdf')) {
+    return 'application/pdf';
+  }
+  if (lower.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (lower.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (lower.endsWith('.mp4')) {
+    return 'video/mp4';
+  }
+  if (lower.endsWith('.mov')) {
+    return 'video/quicktime';
+  }
+  return null;
+}
+
+export function resolveStoredContentType(
+  reportedType: string,
+  objectKey: string,
+  allowed: Set<string>,
+): string {
+  const normalized = normalizeMimeType(reportedType);
+  if (allowed.has(normalized) && normalized !== 'application/octet-stream') {
+    return normalized;
+  }
+  const inferred = inferContentTypeFromObjectKey(objectKey);
+  if (inferred && allowed.has(inferred)) {
+    return inferred;
+  }
+  return normalized;
+}
+
+export function assertAllowedBookingDocumentType(contentType: string): void {
+  const normalized = normalizeMimeType(contentType);
+  if (!ALLOWED_BOOKING_DOCUMENT_TYPES.has(normalized)) {
+    throw new Error('Use a PDF, JPEG, PNG, or WebP document.');
   }
 }
 
@@ -111,6 +180,31 @@ export function assertTripMemoryObjectKey(tripId: string, objectKey: string): vo
   const prefix = `trips/${tripId}/media/`;
   if (!objectKey.startsWith(prefix) || objectKey.length <= prefix.length) {
     throw new Error('The object key does not match this trip.');
+  }
+}
+
+export function buildBookingAttachmentObjectKey(
+  tripId: string,
+  bookingId: string,
+  contentType: string,
+): string {
+  assertObjectId(tripId, 'trip id');
+  assertObjectId(bookingId, 'booking id');
+  assertAllowedBookingDocumentType(contentType);
+  const ext = extensionForContentType(contentType);
+  return `trips/${tripId}/bookings/${bookingId}/${randomUUID()}.${ext}`;
+}
+
+export function assertBookingAttachmentObjectKey(
+  tripId: string,
+  bookingId: string,
+  objectKey: string,
+): void {
+  assertObjectId(tripId, 'trip id');
+  assertObjectId(bookingId, 'booking id');
+  const prefix = `trips/${tripId}/bookings/${bookingId}/`;
+  if (!objectKey.startsWith(prefix) || objectKey.length <= prefix.length) {
+    throw new Error('The object key does not match this booking.');
   }
 }
 

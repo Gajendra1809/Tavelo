@@ -93,7 +93,7 @@ Backend environment variables are loaded with dotenv from `backend/.env` and che
 | `STORAGE_ENABLED` | When `true`, Supabase uploads and signed URLs are active. |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` | Supabase project and private bucket (backend only). |
 | `SIGNED_URL_TTL_SECONDS` | Lifetime of presigned GET URLs and in-process sign cache. |
-| `AVATAR_MAX_BYTES`, `TRIP_COVER_MAX_BYTES`, `MEMORY_IMAGE_MAX_BYTES`, `MEMORY_VIDEO_MAX_BYTES` | Upload size caps. |
+| `AVATAR_MAX_BYTES`, `TRIP_COVER_MAX_BYTES`, `MEMORY_IMAGE_MAX_BYTES`, `MEMORY_VIDEO_MAX_BYTES`, `BOOKING_ATTACHMENT_MAX_BYTES` | Upload size caps. |
 
 Full examples: [`backend/.env.example`](../backend/.env.example). Setup steps: [DEVELOPMENT.md](./DEVELOPMENT.md#object-storage-supabase).
 
@@ -160,7 +160,7 @@ Login and registration are rate limited. A failed login uses the same message wh
 
 ## Visual theme
 
-The mobile app uses one set of tokens in `mobile/src/theme`. Screens sit on a soft sky-to-ivory wash, with white cards, teal actions, and seafoam highlights. Scenic photos are used for the sign-in hero and for a trip cover when a cover address exists. Trip memories use an Instagram-style grid with client-side All/Photos/Videos filters. Shared expenses use a dedicated Expense collection and Settlement records per trip. Trip details include a shared day-by-day itinerary for accepted members.
+The mobile app uses one set of tokens in `mobile/src/theme`. Screens sit on a soft sky-to-ivory wash, with white cards, teal actions, and seafoam highlights. Scenic photos are used for the sign-in hero and for a trip cover when a cover address exists. Trip memories use an Instagram-style grid with client-side All/Photos/Videos filters. Shared expenses use a dedicated Expense collection and Settlement records per trip. Trip details include a shared day-by-day itinerary, a bookings hub for confirmations and tickets, and memories for accepted members.
 
 ## Trips
 
@@ -196,6 +196,11 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `POST` | `/api/v1/trips/:id/memories/upload-intent` | Member prepares upload; returns presigned PUT URL |
 | `POST` | `/api/v1/trips/:id/memories` | Member completes upload (object keys, caption, optional thumbnail key) |
 | `PATCH/DELETE` | `/api/v1/trips/:id/memories/:memoryId` | Uploader or owner updates caption or deletes item |
+| `GET/POST` | `/api/v1/trips/:id/bookings` | Member lists or creates shared bookings (optional `?category=`) |
+| `GET/PATCH/DELETE` | `/api/v1/trips/:id/bookings/:bookingId` | Member reads; creator or owner updates or deletes |
+| `POST` | `/api/v1/trips/:id/bookings/:bookingId/attachments/upload-intent` | Member prepares document upload (presigned PUT) |
+| `POST` | `/api/v1/trips/:id/bookings/:bookingId/attachments/complete` | Member registers uploaded object key on the booking |
+| `DELETE` | `/api/v1/trips/:id/bookings/:bookingId/attachments/:attachmentId` | Uploader, booking creator, or trip owner removes file |
 
 A missing or invalid token is 401. Error bodies do not include the trip. An invitation card for the recipient includes the trip name, destination, and inviter name.
 
@@ -212,7 +217,7 @@ When storage is enabled, `createPresignedGetUrl` in `backend/src/modules/storage
 | Topic | Rule |
 | --- | --- |
 | **Bucket** | Private; no public read. |
-| **Upload flow** | Client calls upload-intent → **PUT** bytes to presigned URL → complete. Original quality is preserved (no server re-encode in v1). |
+| **Upload flow** | Client calls upload-intent → **PUT** bytes to presigned URL → complete. Original quality is preserved (no server re-encode in v1). Native PUTs go through `mobile/src/services/storageUpload.ts` (stage local URI, then `File.upload`); see [DEVELOPMENT.md — Mobile file picks and storage uploads](./DEVELOPMENT.md#mobile-file-picks-and-storage-uploads). |
 | **Profile avatar** | Self only: `POST/DELETE /api/v1/users/me/avatar/*`. |
 | **Trip cover** | Trip owner only: `POST/DELETE /api/v1/trips/:id/cover/*`. |
 | **View cover** | Trip members via existing trip GET/list (signed URL in `coverImageUrl`). |
@@ -220,8 +225,9 @@ When storage is enabled, `createPresignedGetUrl` in `backend/src/modules/storage
 | **MIME types** | `image/jpeg`, `image/png`, `image/webp`. |
 | **Size limits** | Configurable (`AVATAR_MAX_BYTES`, `TRIP_COVER_MAX_BYTES`; defaults 5 MB / 10 MB). |
 | **Storage off** | Upload routes return 503; mobile uses bundled default images. |
-| **Object keys** | `users/{userId}/avatar/{uuid}.ext`, `trips/{tripId}/cover/{uuid}.ext`, `trips/{tripId}/media/{uuid}.ext`. |
+| **Object keys** | `users/{userId}/avatar/{uuid}.ext`, `trips/{tripId}/cover/{uuid}.ext`, `trips/{tripId}/media/{uuid}.ext`, `trips/{tripId}/bookings/{bookingId}/{uuid}.ext`. |
 | **Trip memories** | Members: `GET/POST /api/v1/trips/:id/memories`, upload-intent + complete pattern. Edit/delete caption or delete item: uploader or trip owner. Keys under `trips/{tripId}/media/`. Images JPEG/PNG/WebP; videos MP4/MOV. Limits: `MEMORY_IMAGE_MAX_BYTES` (default 15 MB), `MEMORY_VIDEO_MAX_BYTES` (default 100 MB). List items include stable `objectKey` / `thumbnailObjectKey` plus signed `mediaUrl` / `thumbnailUrl`. Mobile can **save to device** from the preview (download icon / “Save to device”) or **bulk download** after multi-select on the grid (`memoryDownload.ts` uses signed URLs + `expo-media-library` on native). |
+| **Trip bookings** | Members: CRUD under `/api/v1/trips/:id/bookings`. Documents use the same upload-intent → PUT → complete flow as memories. Keys under `trips/{tripId}/bookings/{bookingId}/{uuid}.ext`. MIME: PDF, JPEG, PNG, WebP. Limit: `BOOKING_ATTACHMENT_MAX_BYTES` (default 15 MB). Edit/delete booking: creator or trip owner. Remove attachment: uploader, booking creator, or trip owner. Responses include signed `fileUrl` per attachment (not stored in Mongo). `createdBy` is always from the access token. |
 | **Signed GET URLs** | Minted per request when not cached; TTL from `SIGNED_URL_TTL_SECONDS` (default 3600s). Same `objectKey` reuses cached URL within TTL. |
 
 Trips created before accounts have no `ownerId`. They are not listed and cannot be opened. They are not assigned to anyone. To remove them, delete trip documents in MongoDB where `ownerId` does not exist.
@@ -242,11 +248,11 @@ Expenses live in an `Expense` collection with embedded share rows (`userId`, `am
 | **Record settlement** | Only the **payer** or **recipient** of that transfer may record it (403 for other members). Amount cannot exceed the outstanding balance between those two for that currency. |
 | **Cancel settlement** | The member who recorded it, or the trip owner. Cancelling unlocks expense edits again. |
 | **Former members** | Removed members remain on historical expense rows; names show as “Former member” when they are no longer on the trip. |
-| **Trip delete** | Deletes that trip’s expenses and settlements. |
+| **Trip delete** | Deletes that trip’s bookings (and attachment objects when storage is on), expenses, settlements, memories, invitations, and activities. |
 
 Responses always include the trip owner in the member list even when older data stored only invitees in `members`.
 
-Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities.
+Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities, bookings (and booking attachment objects when storage is enabled), expenses, settlements, invitations, and memories.
 
 Invitations are stored separately from the trip, with a status of pending, accepted, or declined. A unique index allows only one pending invitation for the same trip and person. Accepting adds that person to `members` with the member role. Declining does not. Deleting a trip also deletes its invitations. Only an existing Tavelo account can be invited, and the app does not send email.
 
@@ -257,6 +263,8 @@ Invitations are stored separately from the trip, with a status of pending, accep
 The server does not trust a user id sent by the client. Trip access uses the verified token. Changing an id does not open a trip unless that account is the creator or a member.
 
 Trip memories use the `TripMemory` collection plus private object keys; signed URLs are generated when listing or viewing, not stored as the durable reference.
+
+Trip bookings use the `Booking` collection with embedded attachment metadata (`objectKey`, filename, MIME type, size). File bytes live in the private bucket; signed URLs are minted on read like memories.
 
 ## Logging
 

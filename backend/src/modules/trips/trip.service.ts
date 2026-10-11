@@ -93,6 +93,8 @@ export async function deleteTrip(ownerId: string, id: string): Promise<void> {
   await deleteExpensesForTrip(existing._id);
   const { deleteMemoriesForTrip } = await import('../memories/memory.service');
   await deleteMemoriesForTrip(existing._id);
+  const { deleteBookingsForTrip } = await import('../bookings/booking.service');
+  await deleteBookingsForTrip(existing._id);
   await tryDeleteStoredObject(existing.coverObjectKey ?? null);
 }
 

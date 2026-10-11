@@ -1,6 +1,7 @@
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { TRIPS_PATH } from '@/constants/api';
 import { apiRequest } from '@/lib/apiClient';
+import { putLocalFileToSignedUrl, resolveLocalByteSize } from '@/services/storageUpload';
 import type { MemoryFilter, TripMemoriesPage, TripMemoryItem } from '@/types/memory';
 
 type UploadIntent = {
@@ -55,27 +56,6 @@ export async function listTripMemories(
   return apiRequest<TripMemoriesPage>(`${tripMemoriesBase(tripId)}${query ? `?${query}` : ''}`);
 }
 
-async function putToSignedUrl(
-  uploadUrl: string,
-  uri: string,
-  contentType: string,
-  onProgress?: (ratio: number) => void,
-): Promise<void> {
-  onProgress?.(0.1);
-  const file = await fetch(uri);
-  const blob = await file.blob();
-  onProgress?.(0.35);
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': contentType },
-    body: blob,
-  });
-  onProgress?.(1);
-  if (!response.ok) {
-    throw new Error('Could not upload the file to storage.');
-  }
-}
-
 export async function uploadTripMemory(input: {
   tripId: string;
   uri: string;
@@ -96,7 +76,7 @@ export async function uploadTripMemory(input: {
     method: 'POST',
     body: JSON.stringify({ contentType: input.contentType, byteSize: input.byteSize }),
   });
-  await putToSignedUrl(intent.uploadUrl, input.uri, input.contentType, input.onProgress);
+  await putLocalFileToSignedUrl(intent.uploadUrl, input.uri, input.contentType, input.onProgress);
 
   let thumbnailObjectKey: string | undefined;
   if (allowedVideo.has(input.contentType)) {
@@ -105,18 +85,13 @@ export async function uploadTripMemory(input: {
         time: 800,
         quality: 0.72,
       });
-      const thumbFile = await fetch(thumbUri);
-      const thumbBlob = await thumbFile.blob();
-      const thumbIntent = await apiRequest<UploadIntent>(`${base}/upload-intent`, {
-        method: 'POST',
-        body: JSON.stringify({ contentType: 'image/jpeg', byteSize: thumbBlob.size }),
-      });
-      const thumbPut = await fetch(thumbIntent.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'image/jpeg' },
-        body: thumbBlob,
-      });
-      if (thumbPut.ok) {
+      const thumbSize = await resolveLocalByteSize(thumbUri);
+      if (thumbSize > 0) {
+        const thumbIntent = await apiRequest<UploadIntent>(`${base}/upload-intent`, {
+          method: 'POST',
+          body: JSON.stringify({ contentType: 'image/jpeg', byteSize: thumbSize }),
+        });
+        await putLocalFileToSignedUrl(thumbIntent.uploadUrl, thumbUri, 'image/jpeg');
         thumbnailObjectKey = thumbIntent.objectKey;
       }
     } catch {

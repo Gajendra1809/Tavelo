@@ -8,7 +8,11 @@ import {
   buildTripCoverObjectKey,
   buildTripMemoryObjectKey,
   assertTripMemoryObjectKey,
+  buildBookingAttachmentObjectKey,
+  assertBookingAttachmentObjectKey,
   extensionForContentType,
+  resolveStoredContentType,
+  ALLOWED_BOOKING_DOCUMENT_TYPES,
 } from './policy';
 
 describe('storage policy', () => {
@@ -17,6 +21,7 @@ describe('storage policy', () => {
     assert.equal(extensionForContentType('image/png'), 'png');
     assert.equal(extensionForContentType('image/webp'), 'webp');
     assert.equal(extensionForContentType('video/mp4'), 'mp4');
+    assert.equal(extensionForContentType('application/pdf'), 'pdf');
   });
 
   it('builds keys under the expected prefixes', () => {
@@ -31,6 +36,20 @@ describe('storage policy', () => {
     const memoryKey = buildTripMemoryObjectKey(tripId, 'video/mp4');
     assert.ok(memoryKey.startsWith(`trips/${tripId}/media/`));
     assertTripMemoryObjectKey(tripId, memoryKey);
+    const bookingId = new mongoose.Types.ObjectId().toString();
+    const bookingKey = buildBookingAttachmentObjectKey(tripId, bookingId, 'application/pdf');
+    assert.ok(bookingKey.startsWith(`trips/${tripId}/bookings/${bookingId}/`));
+    assert.ok(bookingKey.endsWith('.pdf'));
+    assertBookingAttachmentObjectKey(tripId, bookingId, bookingKey);
+  });
+
+  it('resolves octet-stream from object key extension', () => {
+    const resolved = resolveStoredContentType(
+      'application/octet-stream',
+      'trips/x/bookings/y/z.jpg',
+      ALLOWED_BOOKING_DOCUMENT_TYPES,
+    );
+    assert.equal(resolved, 'image/jpeg');
   });
 
   it('rejects mismatched object keys', () => {

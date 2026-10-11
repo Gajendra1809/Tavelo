@@ -313,6 +313,16 @@ export function TripDetailScreen() {
       ) : null}
       {actionError ? <ErrorState title="Could not delete" message={actionError} /> : null}
       <View style={styles.card}>
+        <Text style={styles.sectionLabel}>Bookings</Text>
+        <Text style={styles.muted}>
+          Keep hotel, train, flight, and ticket confirmations in one shared place for the group.
+        </Text>
+        <SecondaryButton
+          label="Open bookings"
+          onPress={() => router.push(`/trip/${trip.id}/bookings` as Href)}
+        />
+      </View>
+      <View style={styles.card}>
         <Text style={styles.sectionLabel}>Memories</Text>
         <Text style={styles.muted}>Share photos and videos with everyone on this trip.</Text>
         <SecondaryButton
