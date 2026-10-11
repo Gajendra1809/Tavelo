@@ -29,6 +29,22 @@ const envSchema = z.object({
     )
     .default('/api/v1'),
   CORS_ORIGINS: z.string().optional().default(''),
+  JWT_ACCESS_SECRET: z
+    .string()
+    .trim()
+    .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters.'),
+  ACCESS_TOKEN_TTL_SECONDS: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => Number(value === undefined || value === '' ? '900' : value))
+    .pipe(z.number().int().min(60).max(3600)),
+  REFRESH_TOKEN_TTL_DAYS: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => Number(value === undefined || value === '' ? '30' : value))
+    .pipe(z.number().int().min(1).max(90)),
 });
 
 export type AppEnv = {
@@ -37,6 +53,9 @@ export type AppEnv = {
   MONGODB_URI: string;
   API_PREFIX: string;
   CORS_ORIGINS: string[];
+  JWT_ACCESS_SECRET: string;
+  ACCESS_TOKEN_TTL_SECONDS: number;
+  REFRESH_TOKEN_TTL_DAYS: number;
 };
 
 export class EnvConfigError extends Error {
@@ -55,6 +74,10 @@ export function getEnv(): AppEnv {
   return cached;
 }
 
+export function resetEnvCache(): void {
+  cached = null;
+}
+
 export function parseEnv(source: NodeJS.ProcessEnv): AppEnv {
   const parsed = envSchema.safeParse(source);
   if (!parsed.success) {
@@ -71,6 +94,15 @@ export function parseEnv(source: NodeJS.ProcessEnv): AppEnv {
     );
   }
 
+  if (
+    parsed.data.NODE_ENV === 'production' &&
+    parsed.data.JWT_ACCESS_SECRET.startsWith('replace-with')
+  ) {
+    throw new EnvConfigError(
+      'Environment configuration is invalid.\n- JWT_ACCESS_SECRET: Replace the example value before production.',
+    );
+  }
+
   const prefix =
     parsed.data.API_PREFIX.length > 1
       ? parsed.data.API_PREFIX.replace(/\/+$/, '')
@@ -82,6 +114,9 @@ export function parseEnv(source: NodeJS.ProcessEnv): AppEnv {
     MONGODB_URI: parsed.data.MONGODB_URI,
     API_PREFIX: prefix,
     CORS_ORIGINS: origins,
+    JWT_ACCESS_SECRET: parsed.data.JWT_ACCESS_SECRET,
+    ACCESS_TOKEN_TTL_SECONDS: parsed.data.ACCESS_TOKEN_TTL_SECONDS,
+    REFRESH_TOKEN_TTL_DAYS: parsed.data.REFRESH_TOKEN_TTL_DAYS,
   };
 }
 

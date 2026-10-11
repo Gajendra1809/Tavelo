@@ -5,6 +5,12 @@ const dateOnly = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a valid date.')
   .refine(isRealDate, 'Use a valid date.');
 
+const httpImageUrl = z
+  .union([z.string().trim().max(2048, 'Use 2048 characters or fewer.'), z.null()])
+  .refine((value) => value == null || value === '' || isHttpUrl(value), {
+    message: 'Use an http or https image address.',
+  });
+
 export const createTripSchema = z
   .object({
     name: z.string().trim().min(1, 'Enter a trip name.').max(80, 'Use 80 characters or fewer.'),
@@ -21,13 +27,51 @@ export const createTripSchema = z
       .max(500, 'Use 500 characters or fewer.')
       .optional()
       .default(''),
+    coverImageUrl: httpImageUrl.optional(),
   })
+  .strip()
   .refine((trip) => trip.endDate >= trip.startDate, {
     path: ['endDate'],
     message: 'End date must be on or after the start date.',
   });
 
 export type CreateTripInput = z.infer<typeof createTripSchema>;
+
+const optionalText = (max: number, emptyMessage: string, longMessage: string) =>
+  z.string().trim().min(1, emptyMessage).max(max, longMessage);
+
+export const updateTripSchema = z
+  .object({
+    name: optionalText(80, 'Enter a trip name.', 'Use 80 characters or fewer.').optional(),
+    destination: optionalText(
+      120,
+      'Enter a destination.',
+      'Use 120 characters or fewer.',
+    ).optional(),
+    startDate: dateOnly.optional(),
+    endDate: dateOnly.optional(),
+    description: z.string().trim().max(500, 'Use 500 characters or fewer.').optional(),
+    coverImageUrl: httpImageUrl.optional(),
+  })
+  .strip()
+  .refine((trip) => Object.values(trip).some((value) => value !== undefined), {
+    message: 'Nothing to update.',
+  })
+  .refine((trip) => !trip.startDate || !trip.endDate || trip.endDate >= trip.startDate, {
+    path: ['endDate'],
+    message: 'End date must be on or after the start date.',
+  });
+
+export type UpdateTripInput = z.infer<typeof updateTripSchema>;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 function isRealDate(value: string): boolean {
   const [year, month, day] = value.split('-').map((part) => Number(part));

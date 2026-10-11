@@ -7,6 +7,7 @@ describe('parseEnv', () => {
     const env = parseEnv({
       MONGODB_URI: 'mongodb://127.0.0.1:27017/tavelo',
       CORS_ORIGINS: 'http://localhost:8081, http://localhost:19006',
+      JWT_ACCESS_SECRET: 'test-access-secret-must-be-32-characters',
     });
 
     assert.equal(env.NODE_ENV, 'development');
@@ -16,6 +17,8 @@ describe('parseEnv', () => {
       'http://localhost:8081',
       'http://localhost:19006',
     ]);
+    assert.equal(env.ACCESS_TOKEN_TTL_SECONDS, 900);
+    assert.equal(env.REFRESH_TOKEN_TTL_DAYS, 30);
   });
 
   it('does not echo a rejected value', () => {
@@ -23,6 +26,7 @@ describe('parseEnv', () => {
       () =>
         parseEnv({
           MONGODB_URI: 'supersecret-not-a-database-uri',
+          JWT_ACCESS_SECRET: 'test-access-secret-must-be-32-characters',
         }),
       (error: unknown) => {
         assert.ok(error instanceof EnvConfigError);
@@ -39,6 +43,7 @@ describe('parseEnv', () => {
           NODE_ENV: 'production',
           MONGODB_URI: 'mongodb+srv://user:secret@cluster.mongodb.net/tavelo',
           CORS_ORIGINS: '*',
+          JWT_ACCESS_SECRET: 'test-access-secret-must-be-32-characters',
         }),
       (error: unknown) => {
         assert.ok(error instanceof EnvConfigError);

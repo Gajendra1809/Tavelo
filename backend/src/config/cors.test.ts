@@ -9,6 +9,9 @@ const baseEnv: AppEnv = {
   MONGODB_URI: 'mongodb://127.0.0.1:27017/tavelo',
   API_PREFIX: '/api/v1',
   CORS_ORIGINS: ['http://localhost:8081'],
+  JWT_ACCESS_SECRET: 'test-access-secret-must-be-32-characters',
+  ACCESS_TOKEN_TTL_SECONDS: 900,
+  REFRESH_TOKEN_TTL_DAYS: 30,
 };
 
 describe('isOriginAllowed', () => {

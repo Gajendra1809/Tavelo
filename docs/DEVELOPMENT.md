@@ -68,6 +68,14 @@ data    : @{status=ok; api=up; database=connected; timestamp=...}
 
 The HTTP status is 200.
 
+## Trips
+
+`POST /api/v1/auth/register` and `POST /api/v1/auth/login` return an access token and a refresh token. `POST /api/v1/auth/refresh` rotates the refresh token. `POST /api/v1/auth/logout` revokes it.
+
+`GET`, `POST`, `PATCH`, and `DELETE` under `/api/v1/trips` require `Authorization: Bearer <access token>`. Dates are `YYYY-MM-DD`. Creating a trip stores the signed-in user as the owner. Only that owner can edit or delete it, invite someone, or remove a member. `GET /api/v1/invitations` lists invitations waiting for the signed-in person. Invites look up an existing account by email; there is no outbound mail yet. Future scope: email unknown addresses, ask them to register, then attach the pending invite when they sign up with the same email (third-party provider). Itinerary activities are under `/api/v1/trips/:id/activities` (list, create, get, update, delete). Only accepted trip members can use them. Activity dates must fall within the trip dates. Expenses use `/api/v1/trips/:id/expenses` and settlements under `/api/v1/trips/:id/settlements`. Amounts are integer minor units (INR paise by default). Balances and settlement suggestions are computed on the server. Feature rules (who may add, edit, record, or cancel) are listed in [ARCHITECTURE.md](./ARCHITECTURE.md#group-expenses-and-settlements-business-rules). A cover image, when present, is an `http` or `https` address. The app does not upload photo files yet; that needs object storage.
+
+Set `JWT_ACCESS_SECRET` in `backend/.env` to a random string of at least 32 characters. Do not commit that value.
+
 Database not reachable:
 
 ```text
@@ -163,7 +171,7 @@ npm run lint
 npm test
 ```
 
-Backend tests do not need Atlas. They cover configuration parsing, CORS decisions, request validation, the health report while MongoDB is disconnected, unknown routes, and malformed JSON.
+Backend tests do not need Atlas. They cover configuration parsing, CORS decisions, request validation, trip input rules, the health report while MongoDB is disconnected, unknown routes, and malformed JSON.
 
 ## Android cleartext HTTP
 

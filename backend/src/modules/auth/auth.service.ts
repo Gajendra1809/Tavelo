@@ -1,0 +1,151 @@
+import mongoose from 'mongoose';
+import { AppError } from '../../utils/AppError';
+import { hashPassword, verifyPassword } from './password';
+import { RefreshTokenModel } from './refreshToken.model';
+import type { LoginInput, RefreshInput, RegisterInput } from './auth.schema';
+import { createRefreshToken, hashRefreshToken, signAccessToken } from './tokens';
+import { UserModel, type UserDocument } from './user.model';
+
+export type PublicUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type AuthSession = {
+  user: PublicUser;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+};
+
+const INVALID_LOGIN = 'Email or password is incorrect.';
+
+export async function registerUser(input: RegisterInput): Promise<AuthSession> {
+  assertDatabaseConnected();
+  const passwordHash = await hashPassword(input.password);
+
+  try {
+    const user = await UserModel.create({
+      name: input.name,
+      email: input.email,
+      passwordHash,
+    });
+    return issueSession(user);
+  } catch (error) {
+    if (isDuplicateKey(error)) {
+      throw new AppError(409, 'EMAIL_IN_USE', 'An account with this email already exists.');
+    }
+    throw error;
+  }
+}
+
+export async function loginUser(input: LoginInput): Promise<AuthSession> {
+  assertDatabaseConnected();
+  const user = await UserModel.findOne({ email: input.email }).select('+passwordHash');
+  const passwordOk = await verifyPassword(input.password, user?.passwordHash ?? null);
+  if (!user || !passwordOk) {
+    throw new AppError(401, 'INVALID_CREDENTIALS', INVALID_LOGIN);
+  }
+
+  return issueSession(user);
+}
+
+export async function refreshSession(input: RefreshInput): Promise<AuthSession> {
+  assertDatabaseConnected();
+  const tokenHash = hashRefreshToken(input.refreshToken);
+  const record = await RefreshTokenModel.findOne({ tokenHash });
+  if (!record) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Your session is no longer valid. Sign in again.');
+  }
+
+  if (record.revokedAt || record.expiresAt.getTime() <= Date.now()) {
+    await revokeAllForUser(record.userId);
+    throw new AppError(401, 'UNAUTHORIZED', 'Your session is no longer valid. Sign in again.');
+  }
+
+  const user = await UserModel.findById(record.userId);
+  if (!user) {
+    await revokeAllForUser(record.userId);
+    throw new AppError(401, 'UNAUTHORIZED', 'Your session is no longer valid. Sign in again.');
+  }
+
+  const next = createRefreshToken();
+  await RefreshTokenModel.create({
+    userId: user._id,
+    tokenHash: next.hash,
+    expiresAt: next.expiresAt,
+  });
+  record.revokedAt = new Date();
+  record.replacedByHash = next.hash;
+  await record.save();
+
+  const access = signAccessToken(user._id.toString());
+  return {
+    user: toPublicUser(user),
+    accessToken: access.token,
+    refreshToken: next.raw,
+    expiresIn: access.expiresIn,
+  };
+}
+
+export async function logoutSession(input: RefreshInput): Promise<void> {
+  assertDatabaseConnected();
+  const record = await RefreshTokenModel.findOne({ tokenHash: hashRefreshToken(input.refreshToken) });
+  if (!record || record.revokedAt) {
+    return;
+  }
+
+  record.revokedAt = new Date();
+  await record.save();
+}
+
+async function issueSession(user: UserDocument): Promise<AuthSession> {
+  const refresh = createRefreshToken();
+  await RefreshTokenModel.create({
+    userId: user._id,
+    tokenHash: refresh.hash,
+    expiresAt: refresh.expiresAt,
+  });
+  const access = signAccessToken(user._id.toString());
+  return {
+    user: toPublicUser(user),
+    accessToken: access.token,
+    refreshToken: refresh.raw,
+    expiresIn: access.expiresIn,
+  };
+}
+
+function toPublicUser(user: Pick<UserDocument, '_id' | 'name' | 'email'>): PublicUser {
+  return {
+    id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+  };
+}
+
+async function revokeAllForUser(userId: mongoose.Types.ObjectId): Promise<void> {
+  await RefreshTokenModel.updateMany(
+    { userId, revokedAt: null },
+    { $set: { revokedAt: new Date() } },
+  );
+}
+
+function assertDatabaseConnected(): void {
+  if (mongoose.connection.readyState !== 1) {
+    throw new AppError(
+      503,
+      'SERVICE_UNAVAILABLE',
+      'The database is unavailable. Try again in a moment.',
+    );
+  }
+}
+
+function isDuplicateKey(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 11000
+  );
+}

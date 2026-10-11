@@ -21,7 +21,7 @@ Depends on Phase 0.
 - A profile the signed-in user can read and update.
 - The mobile API client sends the credential. It does not decide who the user is.
 
-Do not store trips until a request can be tied to a real user on the server. Client-supplied user ids are not identity.
+Registration, login, refresh-token rotation, and logout are in place. The client stores tokens in SecureStore on a device. Trip routes use the user id from the access token.
 
 ## Phase 2 — Trips, invitations, membership, and permissions
 
@@ -32,24 +32,32 @@ Depends on Phase 1.
 - Roles such as organizer and member are stored on the server.
 - Every trip read or write checks membership in the API. A trip id in the request is only a lookup key.
 
-This phase is the gate for every later feature that touches private trip data.
+A signed-in person can create a trip, open its details, and edit or delete it. The creator can invite another registered account by email. Accepting adds that person as a member. The creator remains the only person who can edit, delete, invite, or remove members. Cover photos need object storage; a trip may store an image address, not the file.
+
+**Future scope — invitation email (not built yet):** When the owner enters an email that has no Tavelo account, the API will create a pending invitation tied to that address (or an equivalent token), send a message through a third-party email provider, and ask the person to register. After sign-up with the same email, the invitation appears in the app (Invitations screen) so they can accept and join the trip. That flow needs outbound email, templates, deep links or sign-up handoff, and provider configuration. Today only registered users can be invited, and nothing is sent to their inbox.
 
 ## Phase 3 — Collaborative itinerary
 
 Depends on Phase 2.
 
-- Days, activities, times, and notes on a trip.
-- Members with permission can edit the same itinerary.
-- Conflicts and edit rules stay simple: last write wins is acceptable until real usage shows a need for anything heavier.
+Status: shared itinerary on trip details is implemented.
+
+- Day tabs follow the trip’s start and end dates.
+- Activities store title, optional location, date, optional times, and notes.
+- Accepted members can add, edit, and delete activities on the server.
+- Maps, drag-and-drop scheduling, and offline sync are still ahead.
 
 ## Phase 4 — Bookings and expense splitting
 
 Depends on Phase 2. Itinerary display from Phase 3 is useful, but bookings and expenses only require a trip and its members.
 
+Status: shared trip expenses and settlements are implemented (integer minor units, equal/custom splits, balance ledger, suggested transfers, recorded payments). Bookings and payment gateways are still ahead.
+
 - Store flight, hotel, train, and other booking details entered by members.
 - Record shared expenses and who paid.
 - Calculate a settlement suggestion from those records.
 - Money math is server-side so every client sees the same result.
+- Permission rules (documented in [ARCHITECTURE.md](./ARCHITECTURE.md#group-expenses-and-settlements-business-rules)): any member adds expenses; only expense creator or trip owner edits/deletes; only payer or recipient records a settlement; recorder or trip owner cancels a settlement; expense edits lock while recorded settlements exist.
 
 Booking confirmation files, if added, follow the file rule in Phase 5 rather than being embedded in MongoDB documents.
 
@@ -85,6 +93,7 @@ A freemium plan can be evaluated after the core trip loop works. It is not part 
 
 These stay out until a phase needs them:
 
+- Outbound invitation email for people who do not have an account yet (register-then-accept flow; third-party mail provider).
 - Redux or another global store.
 - A dependency-injection framework.
 - Microservices.

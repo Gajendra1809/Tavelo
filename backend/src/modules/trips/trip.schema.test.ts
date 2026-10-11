@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createTripSchema } from './trip.schema';
+import { createTripSchema, updateTripSchema } from './trip.schema';
 
 const validTrip = {
   name: 'Coast weekend',
@@ -53,5 +53,50 @@ describe('createTripSchema', () => {
     });
 
     assert.equal(parsed.description, '');
+  });
+
+  it('ignores a client-supplied creator id', () => {
+    const parsed = createTripSchema.parse({
+      ...validTrip,
+      creatorId: '507f1f77bcf86cd799439011',
+      ownerId: '507f1f77bcf86cd799439011',
+      members: [{ userId: '507f1f77bcf86cd799439011', role: 'owner' }],
+    });
+
+    assert.equal('creatorId' in parsed, false);
+    assert.equal('ownerId' in parsed, false);
+    assert.equal('members' in parsed, false);
+  });
+});
+
+describe('updateTripSchema', () => {
+  it('accepts a partial update', () => {
+    const parsed = updateTripSchema.parse({ name: '  Hill country  ' });
+    assert.equal(parsed.name, 'Hill country');
+  });
+
+  it('rejects an empty update', () => {
+    assert.equal(updateTripSchema.safeParse({}).success, false);
+  });
+
+  it('rejects an end date before the start date', () => {
+    const result = updateTripSchema.safeParse({
+      startDate: '2026-12-10',
+      endDate: '2026-12-01',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects a cover address that is not http or https', () => {
+    const result = updateTripSchema.safeParse({ coverImageUrl: 'javascript:alert(1)' });
+    assert.equal(result.success, false);
+  });
+
+  it('accepts a https cover address and a cleared cover', () => {
+    assert.equal(
+      updateTripSchema.parse({ coverImageUrl: 'https://example.com/cover.jpg' }).coverImageUrl,
+      'https://example.com/cover.jpg',
+    );
+    assert.equal(updateTripSchema.parse({ coverImageUrl: null }).coverImageUrl, null);
   });
 });

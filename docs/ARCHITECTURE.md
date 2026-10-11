@@ -113,15 +113,90 @@ Requests with no `Origin` are allowed. Expo Go on a device usually omits it. Tha
 
 A wildcard origin is rejected at startup in every environment.
 
-## Trips, before accounts exist
+## Accounts
 
-`GET /api/v1/trips`, `POST /api/v1/trips`, and `GET /api/v1/trips/:id` store and return trips. A trip has a name, destination, start date, end date, and optional description. Dates are calendar dates (`YYYY-MM-DD`), stored at UTC midnight so the day does not shift with the server timezone.
+`POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, and `POST /api/v1/auth/logout` create and end a session. Passwords are hashed with bcrypt before they are stored. Responses never include the hash.
 
-There is still no authentication. These routes do not accept a user id, and they do not isolate trips per person. Anyone who can reach the API can list and create trips. That is temporary development behavior. Do not put private details in a trip until a later phase checks membership on the server. The create-trip screen says this in the app.
+Access tokens are short-lived JWTs signed with `JWT_ACCESS_SECRET`. Refresh tokens are random strings. The database stores only their SHA-256 hash. Each refresh rotates the token and revokes the previous one. Presenting a revoked refresh token revokes every session for that user. Logout revokes the presented refresh token.
+
+The phone keeps both tokens in Expo SecureStore. The laptop browser has no keychain, so the same keys are kept in `localStorage` for that one case. Passwords are never stored on the device.
+
+Login and registration are rate limited. A failed login uses the same message whether the email exists or not.
+
+## Visual theme
+
+The mobile app uses one set of tokens in `mobile/src/theme`. Screens sit on a soft sky-to-ivory wash, with white cards, teal actions, and seafoam highlights. Scenic photos are used for the sign-in hero and for a trip cover when a cover address exists. Memories is still a placeholder. Shared expenses use a dedicated Expense collection and Settlement records per trip. Trip details include a shared day-by-day itinerary for accepted members.
+
+## Trips
+
+Trip routes require a valid access token. The creator is the user id inside that token. `creatorId`, `ownerId`, and `members` in a request body are ignored.
+
+| Method | Path | Who |
+| --- | --- | --- |
+| `GET` | `/api/v1/trips` | Trips the caller owns or belongs to |
+| `POST` | `/api/v1/trips` | Creates a trip and adds the caller as the owner member |
+| `GET` | `/api/v1/trips/:id` | Owner or member. Missing id is 404. Someone else's trip is 403 |
+| `PATCH` | `/api/v1/trips/:id` | Owner only. A member who is not the owner receives 403 |
+| `DELETE` | `/api/v1/trips/:id` | Owner only. Success returns `{ deleted: true }` |
+| `POST` | `/api/v1/trips/:id/invitations` | Owner invites a registered email |
+| `GET` | `/api/v1/trips/:id/invitations` | Owner sees invitations sent for that trip |
+| `DELETE` | `/api/v1/trips/:id/invitations/:invitationId` | Owner cancels a pending invitation |
+| `DELETE` | `/api/v1/trips/:id/members/:userId` | Owner removes a member. The creator cannot be removed |
+| `GET` | `/api/v1/invitations` | Pending invitations for the signed-in person |
+| `POST` | `/api/v1/invitations/:id/accept` | The invited person joins the trip |
+| `POST` | `/api/v1/invitations/:id/decline` | The invited person declines and gains no access |
+| `GET` | `/api/v1/trips/:id/activities` | Member lists activities; optional `?date=YYYY-MM-DD` |
+| `POST` | `/api/v1/trips/:id/activities` | Member adds an activity |
+| `GET` | `/api/v1/trips/:id/activities/:activityId` | Member reads one activity |
+| `PATCH` | `/api/v1/trips/:id/activities/:activityId` | Member updates an activity |
+| `DELETE` | `/api/v1/trips/:id/activities/:activityId` | Member deletes an activity |
+| `GET` | `/api/v1/trips/:id/expenses` | Member lists trip expenses |
+| `POST` | `/api/v1/trips/:id/expenses` | Member adds an expense |
+| `GET` | `/api/v1/trips/:id/expenses/balances` | Member net balances by currency |
+| `GET` | `/api/v1/trips/:id/expenses/settlement-suggestions` | Suggested transfers from balances |
+| `GET/POST` | `/api/v1/trips/:id/settlements` | List or record an off-app payment |
+| `DELETE` | `/api/v1/trips/:id/settlements/:settlementId` | Cancel a recorded settlement |
+| `GET/PATCH/DELETE` | `/api/v1/trips/:id/expenses/:expenseId` | Read, update, or delete one expense |
+
+A missing or invalid token is 401. Error bodies do not include the trip. An invitation card for the recipient includes the trip name, destination, and inviter name.
+
+Stored fields are `name` (the title), `destination`, `description`, `startDate`, `endDate`, optional `coverImageUrl`, `ownerId`, and `members` (`userId` plus `owner` or `member`). Responses also include `title` (the same value as `name`), `creatorId`, the creator's name, and member names looked up from user accounts. Names are not copied onto the trip. Older trips with no `members` array are returned with the owner as the only member. Missing description and cover are returned as an empty string and `null`.
+
+Dates are calendar dates (`YYYY-MM-DD`), stored at UTC midnight so the day does not shift with the server timezone. The end date cannot be earlier than the start date, including when an update changes only one of the two dates.
+
+`coverImageUrl` accepts an `http` or `https` address, or `null` to clear it. The API does not accept image bytes. Choosing a photo in the app needs object storage and an upload flow, which are not configured yet.
+
+Trips created before accounts have no `ownerId`. They are not listed and cannot be opened. They are not assigned to anyone. To remove them, delete trip documents in MongoDB where `ownerId` does not exist.
+
+### Group expenses and settlements (business rules)
+
+Expenses live in an `Expense` collection with embedded share rows (`userId`, `amountMinor`). Settlements are off-app payment records (not a payment gateway). Amounts are integers in minor currency units (INR paise by default).
+
+| Topic | Rule |
+| --- | --- |
+| **Who can view** | Accepted trip members only (403 for others). |
+| **Add expense** | Any trip member. Payer and every participant must be a current member. Expense date must fall within the trip dates. |
+| **Edit or delete expense** | The member who created the expense, or the trip owner. Blocked with 409 while any **recorded** (non-cancelled) settlement exists on that trip. |
+| **Equal split** | Amount divided across participants; leftover paise assigned in stable `userId` order. |
+| **Custom split** | Each share is whole minor units; shares must sum to the expense amount exactly. |
+| **Balances** | Derived on the server: `netMinor = paidMinor − shareMinor`, then adjusted by recorded settlements (payer treated as paying out, recipient as receiving). |
+| **Settlement suggestions** | Greedy transfers from negative net to positive net; same result for every client. |
+| **Record settlement** | Only the **payer** or **recipient** of that transfer may record it (403 for other members). Amount cannot exceed the outstanding balance between those two for that currency. |
+| **Cancel settlement** | The member who recorded it, or the trip owner. Cancelling unlocks expense edits again. |
+| **Former members** | Removed members remain on historical expense rows; names show as “Former member” when they are no longer on the trip. |
+| **Trip delete** | Deletes that trip’s expenses and settlements. |
+
+Responses always include the trip owner in the member list even when older data stored only invitees in `members`.
+
+Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities.
+
+Invitations are stored separately from the trip, with a status of pending, accepted, or declined. A unique index allows only one pending invitation for the same trip and person. Accepting adds that person to `members` with the member role. Declining does not. Deleting a trip also deletes its invitations. Only an existing Tavelo account can be invited, and the app does not send email.
+
+**Future scope:** Invite by email when no user exists yet—store a pending invite for that address, send a registration message via a third-party email service, then surface the same invitation after the person registers with matching email so they can accept in the app. Not implemented in the current API.
 
 ## Data and access, later
 
-There is no authentication yet. The server must not trust a user id, trip id, or role sent by the client. Accounts and membership checks still have to land before trip data can be treated as private.
+The server does not trust a user id sent by the client. Trip access uses the verified token. Changing an id does not open a trip unless that account is the creator or a member.
 
 Photos and videos will go to object storage. MongoDB should store metadata and object keys, not file bytes.
 

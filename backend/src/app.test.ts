@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
+import jwt from 'jsonwebtoken';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 
@@ -8,6 +9,7 @@ process.env.PORT = '4000';
 process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/tavelo-test';
 process.env.API_PREFIX = '/api/v1';
 process.env.CORS_ORIGINS = 'http://localhost:8081';
+process.env.JWT_ACCESS_SECRET = 'test-access-secret-must-be-32-characters';
 
 type SuccessBody = {
   success: true;
@@ -91,7 +93,23 @@ describe('HTTP API', () => {
     assert.equal('stack' in body, false);
   });
 
-  it('rejects an incomplete trip without saving it', async () => {
+  it('rejects registration that misses a password', async () => {
+    const response = await fetch(`${baseUrl}/api/v1/auth/register`, {
+      method: 'POST',
+      headers: {
+        Origin: 'http://localhost:8081',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Ada', email: 'ada@example.com' }),
+    });
+    const body = (await response.json()) as ErrorBody;
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, 'VALIDATION_ERROR');
+    assert.equal(JSON.stringify(body).toLowerCase().includes('passwordhash'), false);
+  });
+
+  it('rejects a trip request without a session', async () => {
     const response = await fetch(`${baseUrl}/api/v1/trips`, {
       method: 'POST',
       headers: {
@@ -104,10 +122,34 @@ describe('HTTP API', () => {
       error: { details?: { path: string }[] };
     };
 
-    assert.equal(response.status, 400);
+    assert.equal(response.status, 401);
     assert.equal(body.success, false);
-    assert.equal(body.error.code, 'VALIDATION_ERROR');
-    assert.equal(body.error.details?.some((issue) => issue.path === 'body.destination'), true);
+    assert.equal(body.error.code, 'UNAUTHORIZED');
+    assert.equal(JSON.stringify(body).includes('stack'), false);
+  });
+
+  it('rejects a trip request with a bad or expired token', async () => {
+    const expired = jwt.sign(
+      {
+        sub: '507f1f77bcf86cd799439011',
+        exp: Math.floor(Date.now() / 1000) - 60,
+      },
+      'test-access-secret-must-be-32-characters',
+      { issuer: 'tavelo' },
+    );
+
+    for (const token of ['not-a-token', expired]) {
+      const response = await fetch(`${baseUrl}/api/v1/trips`, {
+        headers: {
+          Origin: 'http://localhost:8081',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const body = (await response.json()) as ErrorBody;
+      assert.equal(response.status, 401);
+      assert.equal(body.error.code, 'UNAUTHORIZED');
+      assert.equal(JSON.stringify(body).includes(token), false);
+    }
   });
 
   it('rejects malformed JSON', async () => {

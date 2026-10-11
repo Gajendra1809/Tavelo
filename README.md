@@ -2,7 +2,7 @@
 
 Tavelo is a travel collaboration app. A trip organizer can create a trip and invite friends. Members will eventually plan an itinerary, store bookings, track shared expenses, share photos, and revisit the trip later.
 
-This repository is the foundation: a React Native app and a Node.js API that can confirm the app, API, and MongoDB are connected. Trip features are planned in [docs/ROADMAP.md](docs/ROADMAP.md) and are not implemented yet.
+This repository holds the React Native app and the Node.js API. Signed-in people can create trips, invite members, plan a shared itinerary, and track group expenses with balances and settlements. Expense and settlement permission rules are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#group-expenses-and-settlements-business-rules). Memories and bookings are still ahead, as described in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Repository layout
 
@@ -89,4 +89,4 @@ Creating the Expo app also created a Git repository inside `mobile/` that contai
 
 ## Current limits
 
-Authentication, trips, and uploads are not built. The health endpoint is public. Do not store private trip data until server-side authentication and authorization exist. Uploaded files belong in object storage later, not in MongoDB documents.
+Sign-in is required before a trip can be created, opened, edited, or deleted. The creator can invite another registered account by email. Accepting the invitation adds that person as a member. Only the creator can change the trip, invite people, or remove members. Trips saved before accounts existed have no owner and stay hidden. A cover can be an image address. Uploading a photo still needs object storage, and the file itself is not stored in MongoDB. The app does not send invitation email. **Future scope:** email people who are not on Tavelo yet, prompt them to register, then show the pending invitation after sign-up (third-party mail provider).
