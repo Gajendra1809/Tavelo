@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme';
+import { AppTopBar } from './AppTopBar';
 import { Atmosphere } from './Atmosphere';
 
 type ScreenProps = {
@@ -10,6 +11,8 @@ type ScreenProps = {
   refreshing?: boolean;
   onRefresh?: () => void;
   footer?: ReactNode;
+  /** Logo + notifications as the first row inside the scroll area. */
+  brandHeader?: boolean;
 };
 
 export function Screen({
@@ -18,6 +21,7 @@ export function Screen({
   refreshing = false,
   onRefresh,
   footer,
+  brandHeader = false,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const footerInset = Math.max(insets.bottom, spacing.sm);
@@ -48,6 +52,7 @@ export function Screen({
               ) : undefined
             }
           >
+            {brandHeader ? <AppTopBar /> : null}
             {children}
           </ScrollView>
           {footer ? (

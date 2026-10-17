@@ -1,22 +1,24 @@
 import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NotificationBell } from '@/components/NotificationBell';
+import { TaveloLogo } from '@/components/TaveloLogo';
 import { spacing } from '@/theme';
 
-/** Floating bell aligned top-right on tab screens. */
+/** Logo and notifications row — scrolls with screen content (not sticky). */
 export function AppTopBar() {
-  const insets = useSafeAreaInsets();
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { top: insets.top + spacing.sm }]}>
+    <View style={styles.row}>
+      <TaveloLogo height={34} />
       <NotificationBell />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    position: 'absolute',
-    right: spacing.xl,
-    zIndex: 20,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+    marginHorizontal: -spacing.xs,
   },
 });

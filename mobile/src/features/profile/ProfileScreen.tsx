@@ -113,7 +113,7 @@ export function ProfileScreen() {
   }
 
   return (
-    <Screen>
+    <Screen brandHeader>
       <Text style={styles.title}>Profile</Text>
       <View style={styles.profileCard}>
         {user ? (

@@ -20,7 +20,7 @@ export function HomeScreen() {
   const firstName = user?.name.trim().split(/\s+/)[0];
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} brandHeader>
       <View style={styles.intro}>
         <View style={styles.introRow}>
           <UserAvatar

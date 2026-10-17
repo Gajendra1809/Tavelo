@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TaveloLogo } from '@/components/TaveloLogo';
 import { colors, radius, shadow, spacing, typography } from '@/theme';
 
 type AuthScaffoldProps = {
@@ -43,7 +44,7 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
           </View>
           <View style={styles.sheet}>
             <View style={styles.copy}>
-              <Text style={styles.brand}>TAVELO</Text>
+              <TaveloLogo height={40} />
               <Text style={styles.title}>{title}</Text>
               <Text style={styles.subtitle}>{subtitle}</Text>
             </View>
@@ -96,10 +97,6 @@ const styles = StyleSheet.create({
   },
   copy: {
     gap: spacing.sm,
-  },
-  brand: {
-    ...typography.eyebrow,
-    color: colors.primary,
   },
   title: {
     ...typography.title,

@@ -5,7 +5,7 @@ import { colors, typography } from '@/theme';
 
 export default function MemoriesRoute() {
   return (
-    <Screen>
+    <Screen brandHeader>
       <Text style={styles.title}>Memories</Text>
       <EmptyState
         title="Trip galleries live on each trip"

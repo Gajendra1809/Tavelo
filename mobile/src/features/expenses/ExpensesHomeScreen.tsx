@@ -12,7 +12,7 @@ export function ExpensesHomeScreen() {
   const { trips, loading, error, refresh, refreshing } = useTrips();
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} brandHeader>
       <Text style={styles.title}>Expenses</Text>
       <Text style={styles.lead}>
         Track who paid, who owes, and how to settle for each trip you belong to.

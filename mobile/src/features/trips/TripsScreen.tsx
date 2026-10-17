@@ -17,7 +17,7 @@ export function TripsScreen() {
   const { upcoming, past } = splitTrips(trips);
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} brandHeader>
       <Text style={styles.title}>Trips</Text>
       <PrimaryButton label="Create trip" onPress={() => router.push('/create-trip')} />
       {loading ? <TripListSkeleton /> : null}

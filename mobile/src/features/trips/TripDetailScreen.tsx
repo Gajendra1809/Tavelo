@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CoverMark } from '@/components/CoverMark';
+import { SegmentTabs } from '@/components/SegmentTabs';
 import { UserAvatar } from '@/components/UserAvatar';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -29,6 +30,16 @@ import type { Trip } from '@/types/trip';
 import { TripItinerarySection } from '@/features/trips/TripItinerarySection';
 import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 
+const DETAIL_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'itinerary', label: 'Itinerary' },
+  { id: 'bookings', label: 'Bookings' },
+  { id: 'expenses', label: 'Expenses' },
+  { id: 'memories', label: 'Memories' },
+] as const;
+
+type DetailTab = (typeof DETAIL_TABS)[number]['id'];
+
 export function TripDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -43,6 +54,7 @@ export function TripDetailScreen() {
   const [confirmMember, setConfirmMember] = useState<
     { kind: 'cancel'; invitation: SentInvitation } | { kind: 'remove'; userId: string; name: string } | null
   >(null);
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
 
   const loadInvites = useCallback(async () => {
     if (!trip || !user || trip.creatorId !== user.id) {
@@ -170,149 +182,178 @@ export function TripDetailScreen() {
           </View>
         ) : null}
       </View>
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Description</Text>
-        {trip.description ? (
-          <Text style={styles.description}>{trip.description}</Text>
-        ) : (
-          <Text style={styles.muted}>No description added.</Text>
-        )}
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>People</Text>
-        {trip.creator ? (
-          <Text style={styles.creator}>Created by {trip.creator.name}</Text>
-        ) : (
-          <Text style={styles.muted}>Creator details are unavailable.</Text>
-        )}
-        {members.length > 0 ? (
-          <View style={styles.memberList}>
-            {members.map((member) => (
-              <View key={`${member.userId}-${member.role}`} style={styles.memberRow}>
-                <UserAvatar
-                  name={member.name}
-                  uri={member.avatarUrl}
-                  cacheKey={`avatar:${member.userId}`}
-                  size="md"
-                />
-                <View style={styles.memberCopy}>
-                  <Text numberOfLines={1} style={styles.memberName}>
-                    {member.name}
-                  </Text>
-                  <Text style={styles.role}>{member.role === 'owner' ? 'Owner' : 'Member'}</Text>
-                </View>
-                {canManage && member.role !== 'owner' ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${member.name}`}
-                    onPress={() => setConfirmMember({ kind: 'remove', userId: member.userId, name: member.name })}
-                    style={styles.textAction}
-                  >
-                    <Text style={styles.textActionLabel}>Remove</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ))}
+      <SegmentTabs tabs={[...DETAIL_TABS]} active={activeTab} onChange={setActiveTab} />
+
+      {activeTab === 'overview' ? (
+        <>
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Description</Text>
+            {trip.description ? (
+              <Text style={styles.description}>{trip.description}</Text>
+            ) : (
+              <Text style={styles.muted}>No description added.</Text>
+            )}
           </View>
-        ) : (
-          <EmptyState
-            title="No people yet"
-            message="Invite someone with a Tavelo account to join this trip."
-            illustration="travel"
-          />
-        )}
-        {canManage && user ? (
-          <>
-            <TripMemberSearch
-              tripId={trip.id}
-              currentUserId={user.id}
-              memberUserIds={members.map((member) => member.userId)}
-              pendingInviteeIds={sentInvites.map((invitation) => invitation.invitee.id)}
-              onInvited={(invitation) => {
-                setSentInvites((current) => [
-                  invitation,
-                  ...current.filter((item) => item.id !== invitation.id),
-                ]);
-              }}
-            />
-            {sentInvites.length > 0 ? <Text style={styles.sectionLabel}>Pending invitations</Text> : null}
-            {sentInvites.map((invitation) => (
-              <View key={invitation.id} style={styles.memberRow}>
-                <View style={styles.memberCopy}>
-                  <Text numberOfLines={1} style={styles.memberName}>
-                    {invitation.invitee.name}
-                  </Text>
-                  {invitation.invitee.username ? (
-                    <Text style={styles.role}>@{invitation.invitee.username}</Text>
-                  ) : (
-                    <Text style={styles.role}>{invitation.invitee.email}</Text>
-                  )}
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Cancel invitation to ${invitation.invitee.name}`}
-                  onPress={() => setConfirmMember({ kind: 'cancel', invitation })}
-                  style={styles.textAction}
-                >
-                  <Text style={styles.textActionLabel}>Cancel</Text>
-                </Pressable>
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>People</Text>
+            {trip.creator ? (
+              <Text style={styles.creator}>Created by {trip.creator.name}</Text>
+            ) : (
+              <Text style={styles.muted}>Creator details are unavailable.</Text>
+            )}
+            {members.length > 0 ? (
+              <View style={styles.memberList}>
+                {members.map((member) => (
+                  <View key={`${member.userId}-${member.role}`} style={styles.memberRow}>
+                    <UserAvatar
+                      name={member.name}
+                      uri={member.avatarUrl}
+                      cacheKey={`avatar:${member.userId}`}
+                      size="md"
+                    />
+                    <View style={styles.memberCopy}>
+                      <Text numberOfLines={1} style={styles.memberName}>
+                        {member.name}
+                      </Text>
+                      <Text style={styles.role}>{member.role === 'owner' ? 'Owner' : 'Member'}</Text>
+                    </View>
+                    {canManage && member.role !== 'owner' ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${member.name}`}
+                        onPress={() =>
+                          setConfirmMember({ kind: 'remove', userId: member.userId, name: member.name })
+                        }
+                        style={styles.textAction}
+                      >
+                        <Text style={styles.textActionLabel}>Remove</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ))}
               </View>
-            ))}
-          </>
-        ) : null}
-        {membershipError ? <ErrorState title="Could not update people" message={membershipError} /> : null}
-      </View>
-      {canManage ? (
-        <View style={styles.actions}>
-          <SecondaryButton
-            label="Edit trip"
-            onPress={() => router.push(`/trip/${trip.id}/edit` as Href)}
-            disabled={deleting}
+            ) : (
+              <EmptyState
+                title="No people yet"
+                message="Invite someone with a Tavelo account to join this trip."
+                illustration="travel"
+              />
+            )}
+            {canManage && user ? (
+              <>
+                <TripMemberSearch
+                  tripId={trip.id}
+                  currentUserId={user.id}
+                  memberUserIds={members.map((member) => member.userId)}
+                  pendingInviteeIds={sentInvites.map((invitation) => invitation.invitee.id)}
+                  onInvited={(invitation) => {
+                    setSentInvites((current) => [
+                      invitation,
+                      ...current.filter((item) => item.id !== invitation.id),
+                    ]);
+                  }}
+                />
+                {sentInvites.length > 0 ? (
+                  <Text style={styles.sectionLabel}>Pending invitations</Text>
+                ) : null}
+                {sentInvites.map((invitation) => (
+                  <View key={invitation.id} style={styles.memberRow}>
+                    <View style={styles.memberCopy}>
+                      <Text numberOfLines={1} style={styles.memberName}>
+                        {invitation.invitee.name}
+                      </Text>
+                      {invitation.invitee.username ? (
+                        <Text style={styles.role}>@{invitation.invitee.username}</Text>
+                      ) : (
+                        <Text style={styles.role}>{invitation.invitee.email}</Text>
+                      )}
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Cancel invitation to ${invitation.invitee.name}`}
+                      onPress={() => setConfirmMember({ kind: 'cancel', invitation })}
+                      style={styles.textAction}
+                    >
+                      <Text style={styles.textActionLabel}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </>
+            ) : null}
+            {membershipError ? (
+              <ErrorState title="Could not update people" message={membershipError} />
+            ) : null}
+          </View>
+          {canManage ? (
+            <View style={styles.actions}>
+              <SecondaryButton
+                label="Edit trip"
+                onPress={() => router.push(`/trip/${trip.id}/edit` as Href)}
+                disabled={deleting}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: deleting, busy: deleting }}
+                disabled={deleting}
+                onPress={() => setConfirmDelete(true)}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  pressed && !deleting ? styles.deletePressed : null,
+                ]}
+              >
+                <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete trip'}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {actionError ? <ErrorState title="Could not delete" message={actionError} /> : null}
+        </>
+      ) : null}
+
+      {activeTab === 'itinerary' ? (
+        <TripItinerarySection
+          key={trip.id}
+          tripId={trip.id}
+          startDate={trip.startDate}
+          endDate={trip.endDate}
+        />
+      ) : null}
+
+      {activeTab === 'bookings' ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Bookings</Text>
+          <Text style={styles.muted}>
+            Keep hotel, train, flight, and ticket confirmations in one shared place for the group.
+          </Text>
+          <PrimaryButton
+            label="Open bookings"
+            onPress={() => router.push(`/trip/${trip.id}/bookings` as Href)}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: deleting, busy: deleting }}
-            disabled={deleting}
-            onPress={() => setConfirmDelete(true)}
-            style={({ pressed }) => [styles.deleteButton, pressed && !deleting ? styles.deletePressed : null]}
-          >
-            <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete trip'}</Text>
-          </Pressable>
         </View>
       ) : null}
-      {actionError ? <ErrorState title="Could not delete" message={actionError} /> : null}
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Bookings</Text>
-        <Text style={styles.muted}>
-          Keep hotel, train, flight, and ticket confirmations in one shared place for the group.
-        </Text>
-        <SecondaryButton
-          label="Open bookings"
-          onPress={() => router.push(`/trip/${trip.id}/bookings` as Href)}
-        />
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Memories</Text>
-        <Text style={styles.muted}>Share photos and videos with everyone on this trip.</Text>
-        <SecondaryButton
-          label="Open trip gallery"
-          onPress={() => router.push(`/trip/${trip.id}/memories` as Href)}
-        />
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Expenses</Text>
-        <Text style={styles.muted}>Track shared costs, who owes whom, and record settlements with the group.</Text>
-        <SecondaryButton
-          label="Open expense ledger"
-          onPress={() => router.push(`/trip/${trip.id}/expenses` as Href)}
-        />
-      </View>
-      <TripItinerarySection
-        key={trip.id}
-        tripId={trip.id}
-        startDate={trip.startDate}
-        endDate={trip.endDate}
-      />
+
+      {activeTab === 'expenses' ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Expenses</Text>
+          <Text style={styles.muted}>
+            Track shared costs, who owes whom, and record settlements with the group.
+          </Text>
+          <PrimaryButton
+            label="Open expense ledger"
+            onPress={() => router.push(`/trip/${trip.id}/expenses` as Href)}
+          />
+        </View>
+      ) : null}
+
+      {activeTab === 'memories' ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Memories</Text>
+          <Text style={styles.muted}>Share photos and videos with everyone on this trip.</Text>
+          <PrimaryButton
+            label="Open trip gallery"
+            onPress={() => router.push(`/trip/${trip.id}/memories` as Href)}
+          />
+        </View>
+      ) : null}
       <ConfirmDialog
         visible={confirmDelete}
         title="Delete this trip?"

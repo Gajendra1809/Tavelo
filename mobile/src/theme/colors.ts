@@ -8,6 +8,8 @@ export const colors = {
   muted: '#64748B',
   line: '#E7EAE8',
   primary: '#087F78',
+  /** Wordmark dot (tavelo.) */
+  brandAccent: '#E86B28',
   primaryPressed: '#075E59',
   onPrimary: '#FFFFFF',
   success: '#1F7A4D',

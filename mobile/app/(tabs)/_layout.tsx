@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { View } from 'react-native';
 import { fetchAndPublishUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import { SymbolView, type AndroidSymbol } from 'expo-symbols';
-import { AppTopBar } from '@/components/AppTopBar';
 import { colors } from '@/theme';
 
 const tabs: { name: 'index' | 'trips' | 'expenses' | 'memories' | 'profile'; title: string; icon: AndroidSymbol }[] =
@@ -24,7 +23,6 @@ export default function TabLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppTopBar />
       <Tabs
       screenOptions={{
         headerShown: false,

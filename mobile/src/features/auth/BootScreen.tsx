@@ -1,12 +1,13 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Atmosphere } from '@/components/Atmosphere';
-import { colors, spacing, typography } from '@/theme';
+import { TaveloLogo } from '@/components/TaveloLogo';
+import { colors, spacing } from '@/theme';
 
 export function BootScreen() {
   return (
     <View style={styles.screen} accessibilityRole="progressbar" accessibilityLabel="Checking your session">
       <Atmosphere />
-      <Text style={styles.brand}>Tavelo</Text>
+      <TaveloLogo height={48} />
       <ActivityIndicator color={colors.primary} />
     </View>
   );
@@ -20,10 +21,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.lg,
-  },
-  brand: {
-    ...typography.title,
-    color: colors.ink,
-    fontSize: 32,
   },
 });
