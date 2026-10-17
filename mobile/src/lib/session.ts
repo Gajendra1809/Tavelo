@@ -111,10 +111,14 @@ async function readStoredUser(): Promise<AuthUser | null> {
     return null;
   }
   try {
-    const user = JSON.parse(raw) as AuthUser;
-    if (!user.id || !user.email || !user.name) {
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (!parsed.id || !parsed.email || !parsed.name) {
       return null;
     }
+    const user: AuthUser = {
+      ...parsed,
+      username: parsed.username ?? null,
+    };
     emit(user);
     return user;
   } catch {

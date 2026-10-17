@@ -3,12 +3,31 @@ import { asyncHandler } from '../../middleware/asyncHandler';
 import { authRateLimit } from '../../middleware/authRateLimit';
 import { sendSuccess } from '../../utils/apiResponse';
 import { validate } from '../../utils/validate';
-import { loginSchema, refreshSchema, registerSchema, type LoginInput, type RefreshInput, type RegisterInput } from './auth.schema';
+import {
+  loginSchema,
+  refreshSchema,
+  registerSchema,
+  usernameAvailabilityQuerySchema,
+  type LoginInput,
+  type RefreshInput,
+  type RegisterInput,
+  type UsernameAvailabilityQuery,
+} from './auth.schema';
 import { loginUser, logoutSession, refreshSession, registerUser } from './auth.service';
+import { checkUsernameAvailability } from '../users/username.service';
 
 export const authRouter = Router();
 
 authRouter.use(authRateLimit);
+
+authRouter.get(
+  '/username-available',
+  validate({ query: usernameAvailabilityQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const query = req.validated?.query as UsernameAvailabilityQuery;
+    sendSuccess(res, await checkUsernameAvailability(query.username));
+  }),
+);
 
 authRouter.post(
   '/register',

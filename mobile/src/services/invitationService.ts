@@ -24,10 +24,10 @@ export function listSentInvitations(tripId: string): Promise<{ invitations: Sent
   );
 }
 
-export function inviteToTrip(tripId: string, email: string): Promise<SentInvitation> {
+export function inviteToTripByUserId(tripId: string, userId: string): Promise<SentInvitation> {
   return apiRequest<SentInvitation>(`${TRIPS_PATH}/${encodeURIComponent(tripId)}/invitations`, {
     method: 'POST',
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ userId }),
   });
 }
 

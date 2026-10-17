@@ -19,6 +19,8 @@ import {
   maxBytesForKind,
 } from '../storage/policy';
 import type { UploadCompleteInput, UploadIntentInput } from '../storage/storage.schema';
+import { normalizeUsername, validateUsernameFormat } from './username';
+import type { UpdateProfileInput } from './user.schema';
 
 export async function getCurrentUser(userId: string): Promise<PublicUser> {
   const user = await findUser(userId);
@@ -86,6 +88,57 @@ export async function completeAvatarUpload(
   return publicUserFromDocument(user);
 }
 
+export async function updateProfileForUser(
+  userId: string,
+  input: UpdateProfileInput,
+): Promise<PublicUser> {
+  const user = await findUser(userId);
+
+  if (input.name !== undefined) {
+    user.name = input.name;
+  }
+
+  if (input.email !== undefined && input.email !== user.email) {
+    const emailTaken = await UserModel.exists({ email: input.email, _id: { $ne: userId } });
+    if (emailTaken) {
+      throw new AppError(409, 'EMAIL_IN_USE', 'An account with this email already exists.');
+    }
+    user.email = input.email;
+  }
+
+  if (input.username !== undefined) {
+    const username = normalizeUsername(input.username);
+    const formatError = validateUsernameFormat(username);
+    if (formatError) {
+      throw new AppError(400, 'VALIDATION_ERROR', formatError);
+    }
+    if (user.username !== username) {
+      const taken = await UserModel.exists({ username, _id: { $ne: userId } });
+      if (taken) {
+        throw new AppError(409, 'USERNAME_IN_USE', 'Username already taken.');
+      }
+      user.username = username;
+    }
+  }
+
+  try {
+    await user.save();
+  } catch (error) {
+    if (isDuplicateKey(error)) {
+      const field = duplicateKeyField(error);
+      if (field === 'username') {
+        throw new AppError(409, 'USERNAME_IN_USE', 'Username already taken.');
+      }
+      if (field === 'email') {
+        throw new AppError(409, 'EMAIL_IN_USE', 'An account with this email already exists.');
+      }
+    }
+    throw error;
+  }
+
+  return publicUserFromDocument(user);
+}
+
 export async function deleteAvatar(userId: string): Promise<PublicUser> {
   assertObjectStorageAvailable();
   const user = await findUser(userId);
@@ -128,7 +181,7 @@ export async function loadUserSummaries(userIds: string[]): Promise<Map<string, 
 }
 
 export async function publicUserFromDocument(
-  user: Pick<UserDocument, '_id' | 'name' | 'email' | 'avatarObjectKey'>,
+  user: Pick<UserDocument, '_id' | 'name' | 'email' | 'username' | 'avatarObjectKey'>,
 ): Promise<PublicUser> {
   let avatarUrl: string | null = null;
   if (user.avatarObjectKey) {
@@ -142,6 +195,7 @@ export async function publicUserFromDocument(
     id: user._id.toString(),
     name: user.name,
     email: user.email,
+    username: user.username ?? null,
     avatarUrl,
   };
 }
@@ -160,4 +214,30 @@ async function findUser(userId: string): Promise<UserDocument> {
 function validationError(error: unknown): AppError {
   const message = error instanceof Error ? error.message : 'Invalid upload request.';
   return new AppError(400, 'VALIDATION_ERROR', message);
+}
+
+function isDuplicateKey(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 11000
+  );
+}
+
+function duplicateKeyField(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('keyPattern' in error)) {
+    return null;
+  }
+  const pattern = (error as { keyPattern?: Record<string, unknown> }).keyPattern;
+  if (!pattern) {
+    return null;
+  }
+  if ('username' in pattern) {
+    return 'username';
+  }
+  if ('email' in pattern) {
+    return 'email';
+  }
+  return null;
 }

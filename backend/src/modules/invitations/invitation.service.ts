@@ -12,7 +12,7 @@ export type SentInvitation = {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: string;
   respondedAt: string | null;
-  invitee: { id: string; name: string; email: string };
+  invitee: { id: string; name: string; email: string; username: string | null };
 };
 
 export type ReceivedInvitation = {
@@ -30,9 +30,15 @@ export async function inviteToTrip(
 ): Promise<SentInvitation> {
   assertDatabaseConnected();
   const trip = await findOwnedTrip(ownerId, tripId);
-  const invitee = await UserModel.findOne({ email: input.email }).select('name email');
+  const invitee = input.userId
+    ? await UserModel.findById(input.userId).select('name email username')
+    : await UserModel.findOne({ email: input.email }).select('name email username');
   if (!invitee) {
-    throw new AppError(404, 'NOT_FOUND', 'No account uses that email.');
+    throw new AppError(
+      404,
+      'NOT_FOUND',
+      input.userId ? 'User not found.' : 'No account uses that email.',
+    );
   }
 
   const inviteeId = invitee._id.toString();
@@ -63,7 +69,12 @@ export async function inviteToTrip(
       status: 'pending',
       createdAt: invitation.createdAt.toISOString(),
       respondedAt: null,
-      invitee: { id: inviteeId, name: invitee.name, email: invitee.email },
+      invitee: {
+        id: inviteeId,
+        name: invitee.name,
+        email: invitee.email,
+        username: invitee.username ?? null,
+      },
     };
   } catch (error) {
     if (isDuplicateKey(error)) {
@@ -78,7 +89,7 @@ export async function listSentInvitations(ownerId: string, tripId: string): Prom
   const invitations = await InvitationModel.find({ tripId }).sort({ createdAt: -1 });
   const invitees = await UserModel.find({
     _id: { $in: invitations.map((invitation) => invitation.inviteeId) },
-  }).select('name email');
+  }).select('name email username');
   const byId = new Map(invitees.map((user) => [user._id.toString(), user]));
 
   return invitations.flatMap((invitation) => {
@@ -92,7 +103,12 @@ export async function listSentInvitations(ownerId: string, tripId: string): Prom
         status: invitation.status,
         createdAt: invitation.createdAt.toISOString(),
         respondedAt: invitation.respondedAt ? invitation.respondedAt.toISOString() : null,
-        invitee: { id: invitee._id.toString(), name: invitee.name, email: invitee.email },
+        invitee: {
+          id: invitee._id.toString(),
+          name: invitee.name,
+          email: invitee.email,
+          username: invitee.username ?? null,
+        },
       },
     ];
   });

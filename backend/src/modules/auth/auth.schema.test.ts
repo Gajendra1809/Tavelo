@@ -6,11 +6,13 @@ describe('registerSchema', () => {
   it('accepts a normalized account', () => {
     const parsed = registerSchema.parse({
       name: '  Ada Lovelace  ',
+      username: ' Ada_Lovelace ',
       email: ' Ada@Example.com ',
       password: 'correct-horse-1',
     });
 
     assert.equal(parsed.name, 'Ada Lovelace');
+    assert.equal(parsed.username, 'ada_lovelace');
     assert.equal(parsed.email, 'ada@example.com');
   });
 

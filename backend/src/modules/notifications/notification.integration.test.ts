@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { uniqueTestUsername } from '../../test/helpers.js';
 import { NotificationModel } from './notification.model';
 
 process.env.NODE_ENV = 'test';
@@ -336,7 +337,8 @@ async function createTrip(accessToken: string) {
 }
 
 async function register(name: string, email: string) {
-  const response = await send('POST', '/api/v1/auth/register', { name, email, password });
+  const username = uniqueTestUsername(email);
+  const response = await send('POST', '/api/v1/auth/register', { name, email, username, password });
   assert.equal(response.status, 201);
   return json<SessionBody>(response).data;
 }

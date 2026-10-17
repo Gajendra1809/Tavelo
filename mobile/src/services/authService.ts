@@ -2,10 +2,12 @@ import { LOGIN_PATH, LOGOUT_PATH, REGISTER_PATH } from '@/constants/api';
 import { apiRequest } from '@/lib/apiClient';
 import { clearSession, persistSession } from '@/lib/session';
 import { readToken, tokenKeys } from '@/lib/tokenStore';
+import { normalizeLoginIdentifier } from '@/lib/username';
 import type { AuthSession, AuthUser } from '@/types/auth';
 
 export async function registerAccount(input: {
   name: string;
+  username: string;
   email: string;
   password: string;
 }): Promise<AuthUser> {
@@ -14,6 +16,7 @@ export async function registerAccount(input: {
     auth: false,
     body: JSON.stringify({
       name: input.name.trim(),
+      username: input.username.trim(),
       email: input.email.trim().toLowerCase(),
       password: input.password,
     }),
@@ -23,11 +26,12 @@ export async function registerAccount(input: {
 }
 
 export async function loginAccount(input: { email: string; password: string }): Promise<AuthUser> {
+  const identifier = normalizeLoginIdentifier(input.email);
   const session = await apiRequest<AuthSession>(LOGIN_PATH, {
     method: 'POST',
     auth: false,
     body: JSON.stringify({
-      email: input.email.trim().toLowerCase(),
+      email: identifier,
       password: input.password,
     }),
   });

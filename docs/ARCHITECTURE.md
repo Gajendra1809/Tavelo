@@ -152,11 +152,24 @@ A wildcard origin is rejected at startup in every environment.
 
 `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, and `POST /api/v1/auth/logout` create and end a session. Passwords are hashed with bcrypt before they are stored. Responses never include the hash.
 
+New accounts must include a **username**. Rules (enforced on the client and server): 3–30 characters after trim and lowercasing; letters, digits, underscores, and periods only; no leading/trailing periods; no `..`. Uniqueness is case-insensitive (`Gajendra` and `gajendra` cannot both exist). MongoDB stores the normalized value on `User.username` with a **sparse unique index** so legacy users without a username can still sign in.
+
+| Method | Path | Role |
+| --- | --- | --- |
+| `GET` | `/api/v1/auth/username-available?username=` | Public availability check (debounced on mobile). Returns `{ username, available, reason, message }` without revealing whether an email exists. |
+| `PATCH` | `/api/v1/users/me` | Update the signed-in user’s **name**, **email**, and/or **username** (partial body). |
+| `GET` | `/api/v1/users/me/username-available?username=` | Username availability while editing profile (treats your current username as available). |
+| `POST` | `/api/v1/users/me/username` | Legacy: set or change username only (prefer `PATCH /users/me`). |
+
+`GET /api/v1/users/search?q=` (authenticated) finds other users by partial **name**, **username prefix**, or **email prefix**. Queries shorter than two characters return an empty list. Results exclude the caller and omit password hashes and tokens. Default limit 20, max 30.
+
 Access tokens are short-lived JWTs signed with `JWT_ACCESS_SECRET`. Refresh tokens are random strings. The database stores only their SHA-256 hash. Each refresh rotates the token and revokes the previous one. Presenting a revoked refresh token revokes every session for that user. Logout revokes the presented refresh token.
 
 The phone keeps both tokens in Expo SecureStore. The laptop browser has no keychain, so the same keys are kept in `localStorage` for that one case. Passwords are never stored on the device.
 
-Login and registration are rate limited. A failed login uses the same message whether the email exists or not.
+Login accepts **email or username** plus password in the same JSON field (`email` on the wire for backward compatibility). Usernames are matched case-insensitively after normalization. Login and registration are rate limited. A failed login uses the same message whether the account exists or not.
+
+Edit **name**, **email**, and **username** from the mobile **Profile** tab (pencil icon → `PATCH /api/v1/users/me`). Email and username must stay unique. **Limitations:** email changes apply immediately with **no verification email**; sign-in accepts the new email or your username. Usernames cannot be cleared once set (only changed). Password changes are not on Profile yet — still sign-in only.
 
 ## Visual theme
 
@@ -173,7 +186,7 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `GET` | `/api/v1/trips/:id` | Owner or member. Missing id is 404. Someone else's trip is 403 |
 | `PATCH` | `/api/v1/trips/:id` | Owner only. A member who is not the owner receives 403 |
 | `DELETE` | `/api/v1/trips/:id` | Owner only. Success returns `{ deleted: true }` |
-| `POST` | `/api/v1/trips/:id/invitations` | Owner invites a registered email |
+| `POST` | `/api/v1/trips/:id/invitations` | Owner invites an existing user by `{ userId }` or `{ email }` (not both) |
 | `GET` | `/api/v1/trips/:id/invitations` | Owner sees invitations sent for that trip |
 | `DELETE` | `/api/v1/trips/:id/invitations/:invitationId` | Owner cancels a pending invitation |
 | `DELETE` | `/api/v1/trips/:id/members/:userId` | Owner removes a member. The creator cannot be removed |
@@ -260,9 +273,9 @@ Responses always include the trip owner in the member list even when older data 
 
 Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities, bookings (and booking attachment objects when storage is enabled), expenses, settlements, invitations, and memories.
 
-Invitations are stored separately from the trip, with a status of pending, accepted, or declined. A unique index allows only one pending invitation for the same trip and person. Accepting adds that person to `members` with the member role. Declining does not. Deleting a trip also deletes its invitations. Only an existing Tavelo account can be invited, and the app does not send email.
+Invitations are stored separately from the trip, with a status of pending, accepted, or declined. A unique index allows only one pending invitation for the same trip and person. Accepting adds that person to `members` with the member role. Declining does not. Deleting a trip also deletes its invitations. Only an **existing** Tavelo account can be invited from the mobile app today: trip owners search by name, username, or email, then send `{ userId }`. The API still accepts `{ email }` for registered users (used in tests and for backward compatibility). The app does not send email.
 
-**Future scope:** Invite by email when no user exists yet—store a pending invite for that address, send a registration message via a third-party email service, then surface the same invitation after the person registers with matching email so they can accept in the app. Not implemented in the current API.
+**Future scope:** Invite by email when no user exists yet—store a pending invite for that address, send a registration message via a third-party email service, then surface the same invitation after the person registers with matching email so they can accept in the app. Not implemented in the current API; do not expose a non-functional “invite non-user” action in the app.
 
 ## Data and access, later
 

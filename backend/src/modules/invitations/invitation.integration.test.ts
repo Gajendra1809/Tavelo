@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { uniqueTestUsername } from '../../test/helpers.js';
 
 process.env.NODE_ENV = 'test';
 process.env.PORT = '4000';
@@ -20,7 +21,7 @@ type InvitationBody = {
   id: string;
   status: string;
   trip?: { id: string; name: string; destination: string };
-  invitee?: { id: string; email: string };
+  invitee?: { id: string; email: string; username?: string | null };
 };
 
 const password = 'correct-horse-1';
@@ -85,7 +86,7 @@ describe('trip invitations', () => {
     const invited = await send(
       'POST',
       `/api/v1/trips/${tripId}/invitations`,
-      { email: 'Friend-Invite@Example.com', userId: stranger.user.id, status: 'accepted' },
+      { email: 'Friend-Invite@Example.com' },
       owner.accessToken,
     );
     assert.equal(invited.status, 201);
@@ -188,6 +189,18 @@ describe('trip invitations', () => {
 
     const noToken = await send('GET', '/api/v1/invitations');
     assert.equal(noToken.status, 401);
+
+    const byUserId = await send(
+      'POST',
+      `/api/v1/trips/${tripId}/invitations`,
+      { userId: stranger.user.id },
+      owner.accessToken,
+    );
+    assert.equal(byUserId.status, 201);
+    assert.equal(
+      json<{ success: true; data: InvitationBody }>(byUserId).data.invitee?.id,
+      stranger.user.id,
+    );
   });
 
   it('lets the recipient decline and the owner cancel without granting access', async () => {
@@ -276,7 +289,8 @@ async function createTrip(accessToken: string, name = 'Coast path') {
 }
 
 async function register(name: string, email: string) {
-  const response = await send('POST', '/api/v1/auth/register', { name, email, password });
+  const username = uniqueTestUsername(email);
+  const response = await send('POST', '/api/v1/auth/register', { name, email, username, password });
   assert.equal(response.status, 201);
   return json<SessionBody>(response).data;
 }

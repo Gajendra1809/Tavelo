@@ -1,16 +1,27 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ErrorState } from '@/components/ErrorState';
 import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { ApiError } from '@/lib/apiClient';
+import { normalizeUsername, validateUsernameFormat } from '@/lib/username';
+import { checkUsernameAvailability } from '@/services/userService';
 import { colors, spacing, typography } from '@/theme';
 import { useAuth } from './AuthProvider';
 import { AuthScaffold } from './AuthScaffold';
 import { validateRegister, type RegisterValues } from './validateAuth';
 
-const empty: RegisterValues = { name: '', email: '', password: '', confirmPassword: '' };
+const empty: RegisterValues = {
+  name: '',
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+};
+
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'error';
 
 export function RegisterScreen() {
   const { register } = useAuth();
@@ -19,16 +30,81 @@ export function RegisterScreen() {
   const [errors, setErrors] = useState<Partial<Record<keyof RegisterValues, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
+  const [usernameHint, setUsernameHint] = useState<string | null>(null);
+  const debouncedUsername = useDebouncedValue(normalizeUsername(values.username), 400);
+  const availabilityRequest = useRef(0);
 
   function update(key: keyof RegisterValues, value: string) {
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
+    if (key === 'username') {
+      setUsernameStatus('idle');
+      setUsernameHint(null);
+    }
   }
+
+  useEffect(() => {
+    const username = debouncedUsername;
+    if (!username) {
+      setUsernameStatus('idle');
+      setUsernameHint(null);
+      return;
+    }
+
+    const formatError = validateUsernameFormat(username);
+    if (formatError) {
+      setUsernameStatus('invalid');
+      setUsernameHint(formatError);
+      return;
+    }
+
+    const id = ++availabilityRequest.current;
+    setUsernameStatus('checking');
+    setUsernameHint('Checking availability…');
+    void checkUsernameAvailability(username)
+      .then((result) => {
+        if (availabilityRequest.current !== id) {
+          return;
+        }
+        if (result.available) {
+          setUsernameStatus('available');
+          setUsernameHint('Username available');
+          return;
+        }
+        if (result.reason === 'invalid') {
+          setUsernameStatus('invalid');
+        } else if (result.reason === 'taken') {
+          setUsernameStatus('taken');
+        } else {
+          setUsernameStatus('error');
+        }
+        setUsernameHint(result.message);
+      })
+      .catch((error) => {
+        if (availabilityRequest.current !== id) {
+          return;
+        }
+        setUsernameStatus('error');
+        setUsernameHint(
+          error instanceof ApiError ? error.message : 'Could not check username availability.',
+        );
+      });
+  }, [debouncedUsername]);
+
+  const canSubmit =
+    !saving &&
+    usernameStatus === 'available' &&
+    normalizeUsername(values.username) === debouncedUsername;
 
   async function submit() {
     const nextErrors = validateRegister(values);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+    if (!canSubmit) {
+      setFormError('Choose a valid, available username before creating your account.');
       return;
     }
 
@@ -37,6 +113,7 @@ export function RegisterScreen() {
     try {
       await register({
         name: values.name,
+        username: values.username,
         email: values.email,
         password: values.password,
       });
@@ -48,6 +125,15 @@ export function RegisterScreen() {
       setSaving(false);
     }
   }
+
+  const hintColor =
+    usernameStatus === 'available'
+      ? colors.primary
+      : usernameStatus === 'checking'
+        ? colors.muted
+        : usernameStatus === 'idle'
+          ? colors.muted
+          : colors.danger;
 
   return (
     <AuthScaffold
@@ -69,6 +155,19 @@ export function RegisterScreen() {
           autoComplete="name"
           textContentType="name"
         />
+        <FormField
+          label="Username"
+          value={values.username}
+          onChangeText={(value) => update('username', value.replace(/\s/g, ''))}
+          error={errors.username}
+          placeholder="your_username"
+          autoCapitalize="none"
+          autoComplete="username"
+          textContentType="username"
+        />
+        {usernameHint ? (
+          <Text style={[styles.usernameHint, { color: hintColor }]}>{usernameHint}</Text>
+        ) : null}
         <FormField
           label="Email"
           value={values.email}
@@ -117,7 +216,7 @@ export function RegisterScreen() {
           label="Create account"
           onPress={() => void submit()}
           loading={saving}
-          disabled={saving}
+          disabled={!canSubmit}
         />
       </View>
     </AuthScaffold>
@@ -127,6 +226,11 @@ export function RegisterScreen() {
 const styles = StyleSheet.create({
   form: {
     gap: spacing.lg,
+  },
+  usernameHint: {
+    ...typography.body,
+    fontSize: 13,
+    marginTop: -spacing.sm,
   },
   toggle: {
     paddingRight: spacing.lg,

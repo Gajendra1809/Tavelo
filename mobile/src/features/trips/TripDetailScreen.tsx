@@ -6,7 +6,6 @@ import { CoverMark } from '@/components/CoverMark';
 import { UserAvatar } from '@/components/UserAvatar';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
-import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
@@ -16,10 +15,10 @@ import { ApiError } from '@/lib/apiClient';
 import { formatDateRange, formatTripLength } from '@/lib/dates';
 import {
   cancelInvitation,
-  inviteToTrip,
   listSentInvitations,
   removeMember,
 } from '@/services/invitationService';
+import { TripMemberSearch } from '@/features/trips/TripMemberSearch';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
 import { expenseCache } from '@/lib/cache/expenseCache';
 import { memoryCache } from '@/lib/cache/memoryCache';
@@ -39,9 +38,6 @@ export function TripDetailScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviting, setInviting] = useState(false);
   const [sentInvites, setSentInvites] = useState<SentInvitation[]>([]);
   const [membershipError, setMembershipError] = useState<string | null>(null);
   const [confirmMember, setConfirmMember] = useState<
@@ -93,30 +89,6 @@ export function TripDetailScreen() {
           ? deleteError.message
           : 'Could not delete this trip. Try again.',
       );
-    }
-  }
-
-  async function sendInvite() {
-    if (!trip || inviting) {
-      return;
-    }
-    const email = inviteEmail.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setInviteError('Enter a valid email address.');
-      return;
-    }
-    setInviting(true);
-    setInviteError(null);
-    try {
-      const invitation = await inviteToTrip(trip.id, email);
-      setSentInvites((current) => [invitation, ...current.filter((item) => item.id !== invitation.id)]);
-      setInviteEmail('');
-    } catch (inviteFailure) {
-      setInviteError(
-        inviteFailure instanceof ApiError ? inviteFailure.message : 'Could not send the invitation.',
-      );
-    } finally {
-      setInviting(false);
     }
   }
 
@@ -249,26 +221,19 @@ export function TripDetailScreen() {
             illustration="travel"
           />
         )}
-        {canManage ? (
+        {canManage && user ? (
           <>
-            <FormField
-              label="Invite by email"
-              value={inviteEmail}
-              onChangeText={(value) => {
-                setInviteEmail(value);
-                setInviteError(null);
+            <TripMemberSearch
+              tripId={trip.id}
+              currentUserId={user.id}
+              memberUserIds={members.map((member) => member.userId)}
+              pendingInviteeIds={sentInvites.map((invitation) => invitation.invitee.id)}
+              onInvited={(invitation) => {
+                setSentInvites((current) => [
+                  invitation,
+                  ...current.filter((item) => item.id !== invitation.id),
+                ]);
               }}
-              error={inviteError ?? undefined}
-              placeholder="friend@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-            />
-            <PrimaryButton
-              label="Invite member"
-              onPress={() => void sendInvite()}
-              loading={inviting}
-              disabled={inviting}
             />
             {sentInvites.length > 0 ? <Text style={styles.sectionLabel}>Pending invitations</Text> : null}
             {sentInvites.map((invitation) => (
@@ -277,7 +242,11 @@ export function TripDetailScreen() {
                   <Text numberOfLines={1} style={styles.memberName}>
                     {invitation.invitee.name}
                   </Text>
-                  <Text style={styles.role}>{invitation.invitee.email}</Text>
+                  {invitation.invitee.username ? (
+                    <Text style={styles.role}>@{invitation.invitee.username}</Text>
+                  ) : (
+                    <Text style={styles.role}>{invitation.invitee.email}</Text>
+                  )}
                 </View>
                 <Pressable
                   accessibilityRole="button"

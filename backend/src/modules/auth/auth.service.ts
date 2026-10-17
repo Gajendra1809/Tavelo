@@ -6,6 +6,7 @@ import type { LoginInput, RefreshInput, RegisterInput } from './auth.schema';
 import { createRefreshToken, hashRefreshToken, signAccessToken } from './tokens';
 import type { PublicUser } from '../../types/publicUser';
 import { publicUserFromDocument } from '../users/user.service';
+import { normalizeLoginIdentifier, normalizeUsername, validateUsernameFormat } from '../users/username';
 import { UserModel, type UserDocument } from './user.model';
 
 export type { PublicUser };
@@ -17,21 +18,37 @@ export type AuthSession = {
   expiresIn: number;
 };
 
-const INVALID_LOGIN = 'Email or password is incorrect.';
+const INVALID_LOGIN = 'Email, username, or password is incorrect.';
 
 export async function registerUser(input: RegisterInput): Promise<AuthSession> {
   assertDatabaseConnected();
+  const username = normalizeUsername(input.username);
+  const usernameError = validateUsernameFormat(username);
+  if (usernameError) {
+    throw new AppError(400, 'VALIDATION_ERROR', usernameError);
+  }
+
+  const taken = await UserModel.exists({ username });
+  if (taken) {
+    throw new AppError(409, 'USERNAME_IN_USE', 'Username already taken.');
+  }
+
   const passwordHash = await hashPassword(input.password);
 
   try {
     const user = await UserModel.create({
       name: input.name,
       email: input.email,
+      username,
       passwordHash,
     });
     return issueSession(user);
   } catch (error) {
     if (isDuplicateKey(error)) {
+      const key = duplicateKeyField(error);
+      if (key === 'username') {
+        throw new AppError(409, 'USERNAME_IN_USE', 'Username already taken.');
+      }
       throw new AppError(409, 'EMAIL_IN_USE', 'An account with this email already exists.');
     }
     throw error;
@@ -40,13 +57,20 @@ export async function registerUser(input: RegisterInput): Promise<AuthSession> {
 
 export async function loginUser(input: LoginInput): Promise<AuthSession> {
   assertDatabaseConnected();
-  const user = await UserModel.findOne({ email: input.email }).select('+passwordHash');
+  const user = await findUserForLogin(normalizeLoginIdentifier(input.email)).select('+passwordHash');
   const passwordOk = await verifyPassword(input.password, user?.passwordHash ?? null);
   if (!user || !passwordOk) {
     throw new AppError(401, 'INVALID_CREDENTIALS', INVALID_LOGIN);
   }
 
   return issueSession(user);
+}
+
+function findUserForLogin(identifier: string) {
+  if (identifier.includes('@')) {
+    return UserModel.findOne({ email: identifier });
+  }
+  return UserModel.findOne({ username: identifier });
 }
 
 export async function refreshSession(input: RefreshInput): Promise<AuthSession> {
@@ -138,4 +162,21 @@ function isDuplicateKey(error: unknown): boolean {
     'code' in error &&
     (error as { code?: unknown }).code === 11000
   );
+}
+
+function duplicateKeyField(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('keyPattern' in error)) {
+    return null;
+  }
+  const pattern = (error as { keyPattern?: Record<string, unknown> }).keyPattern;
+  if (!pattern) {
+    return null;
+  }
+  if ('username' in pattern) {
+    return 'username';
+  }
+  if ('email' in pattern) {
+    return 'email';
+  }
+  return null;
 }

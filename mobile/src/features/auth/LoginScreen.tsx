@@ -49,15 +49,14 @@ export function LoginScreen() {
     >
       <View style={styles.form}>
         <FormField
-          label="Email"
+          label="Email or username"
           value={email}
           onChangeText={setEmail}
           error={errors.email}
-          placeholder="you@email.com"
-          keyboardType="email-address"
+          placeholder="you@email.com or your_username"
           autoCapitalize="none"
-          autoComplete="email"
-          textContentType="emailAddress"
+          autoComplete="username"
+          textContentType="username"
         />
         <FormField
           label="Password"

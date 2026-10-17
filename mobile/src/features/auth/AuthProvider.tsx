@@ -19,7 +19,7 @@ type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 type AuthContextValue = {
   status: AuthStatus;
   user: AuthUser | null;
-  register: (input: { name: string; email: string; password: string }) => Promise<void>;
+  register: (input: { name: string; username: string; email: string; password: string }) => Promise<void>;
   login: (input: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: (options?: { force?: boolean }) => Promise<void>;
@@ -55,9 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const register = useCallback(async (input: { name: string; email: string; password: string }) => {
-    await registerAccount(input);
-  }, []);
+  const register = useCallback(
+    async (input: { name: string; username: string; email: string; password: string }) => {
+      await registerAccount(input);
+    },
+    [],
+  );
 
   const login = useCallback(async (input: { email: string; password: string }) => {
     await loginAccount(input);

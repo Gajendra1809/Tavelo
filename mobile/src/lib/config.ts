@@ -35,3 +35,16 @@ export function isLoopbackUrl(value: string): boolean {
     return false;
   }
 }
+
+/** PC on phone USB/Wi‑Fi hotspot (e.g. 172.26.x) — the phone usually cannot reach the PC at that IP. */
+export function isTetheredPcLanUrl(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)) {
+      return true;
+    }
+    return hostname.startsWith('192.168.43.');
+  } catch {
+    return false;
+  }
+}

@@ -3,19 +3,29 @@ import { describe, it } from 'node:test';
 import { inviteSchema } from './invitation.schema';
 
 describe('inviteSchema', () => {
-  it('normalizes an email and ignores identity fields', () => {
+  it('normalizes an email invite', () => {
     const parsed = inviteSchema.parse({
       email: '  Friend@Example.com ',
-      userId: '507f1f77bcf86cd799439011',
-      status: 'accepted',
     });
 
     assert.equal(parsed.email, 'friend@example.com');
-    assert.equal('userId' in parsed, false);
-    assert.equal('status' in parsed, false);
+  });
+
+  it('accepts userId invites', () => {
+    const parsed = inviteSchema.parse({
+      userId: '507f1f77bcf86cd799439011',
+    });
+    assert.equal(parsed.userId, '507f1f77bcf86cd799439011');
   });
 
   it('rejects an email that is not an address', () => {
     assert.equal(inviteSchema.safeParse({ email: 'not-an-email' }).success, false);
+  });
+
+  it('rejects both email and userId', () => {
+    assert.equal(
+      inviteSchema.safeParse({ email: 'a@b.com', userId: '507f1f77bcf86cd799439011' }).success,
+      false,
+    );
   });
 });

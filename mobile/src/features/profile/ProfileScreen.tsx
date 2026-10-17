@@ -1,7 +1,8 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -12,10 +13,11 @@ import { EditableAvatar } from '@/components/EditableAvatar';
 import { PhotoActionLinks } from '@/components/PhotoActionLinks';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { ProfileEditModal } from '@/features/profile/ProfileEditModal';
 import { profileCache } from '@/lib/cache/profileCache';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
 import { ApiError } from '@/lib/apiClient';
-import { isLoopbackUrl, readApiConfig } from '@/lib/config';
+import { isLoopbackUrl, isTetheredPcLanUrl, readApiConfig } from '@/lib/config';
 import { applyUserUpdate } from '@/lib/session';
 import { logAppError, userFacingMessage } from '@/lib/errorReport';
 import { deleteAvatar, mimeFromUri, uploadAvatarFromUri } from '@/services/mediaService';
@@ -31,6 +33,7 @@ export function ProfileScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -104,10 +107,29 @@ export function ProfileScreen() {
     }
   }
 
+  async function handleProfileSaved(updated: Parameters<typeof applyUserUpdate>[0]) {
+    profileCache.invalidate();
+    await applyUserUpdate(updated);
+  }
+
   return (
     <Screen>
       <Text style={styles.title}>Profile</Text>
       <View style={styles.profileCard}>
+        {user ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+            onPress={() => setEditOpen(true)}
+            style={({ pressed }) => [styles.editButton, pressed ? styles.editPressed : null]}
+          >
+            <SymbolView
+              name={{ android: 'edit', web: 'edit' }}
+              size={20}
+              tintColor={colors.primary}
+            />
+          </Pressable>
+        ) : null}
         <EditableAvatar
           name={user?.name ?? 'Traveler'}
           uri={user?.avatarUrl}
@@ -115,6 +137,11 @@ export function ProfileScreen() {
           onPress={() => void changePhoto()}
         />
         <Text style={styles.cardTitle}>{user?.name ?? 'Your account'}</Text>
+        {user?.username ? (
+          <Text style={styles.handle}>@{user.username}</Text>
+        ) : (
+          <Text style={styles.noHandle}>No username yet</Text>
+        )}
         <Text style={styles.email}>{user?.email ?? 'Signed in'}</Text>
         <PhotoActionLinks
           busy={photoBusy}
@@ -126,6 +153,14 @@ export function ProfileScreen() {
         />
         {photoError ? <Text style={styles.photoError}>{photoError}</Text> : null}
       </View>
+      {user ? (
+        <ProfileEditModal
+          visible={editOpen}
+          user={user}
+          onClose={() => setEditOpen(false)}
+          onSaved={(updated) => void handleProfileSaved(updated)}
+        />
+      ) : null}
       <View style={styles.card}>
         <SecondaryButton label="Invitations" onPress={() => router.push('/invitations' as Href)} />
         <SecondaryButton
@@ -145,8 +180,16 @@ export function ProfileScreen() {
             </Text>
             {isLoopbackUrl(config.baseUrl) ? (
               <Text style={styles.hint}>
-                This URL points at this computer. A phone needs your computer’s LAN address
-                instead.
+                This URL points at this phone. With USB debugging, run adb reverse tcp:4000
+                tcp:4000 and use http://127.0.0.1:4000, or use your PC’s Wi‑Fi IP on the same
+                router as the phone.
+              </Text>
+            ) : null}
+            {isTetheredPcLanUrl(config.baseUrl) ? (
+              <Text style={styles.hint}>
+                This looks like a hotspot or USB-tether address (172.x). Many phones cannot
+                reach a PC on that network. Connect the PC and phone to the same home Wi‑Fi and
+                use the PC’s Wi‑Fi IPv4 from ipconfig (often 192.168.x.x).
               </Text>
             ) : null}
             <PrimaryButton
@@ -190,6 +233,34 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.sm,
+    position: 'relative',
+  },
+  editButton: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.seafoam,
+  },
+  editPressed: {
+    opacity: 0.85,
+  },
+  handle: {
+    ...typography.body,
+    fontSize: 15,
+    color: colors.primary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  noHandle: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
   },
   email: {
     ...typography.body,

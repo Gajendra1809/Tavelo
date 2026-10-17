@@ -3,7 +3,7 @@ export type SentInvitation = {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: string;
   respondedAt: string | null;
-  invitee: { id: string; name: string; email: string };
+  invitee: { id: string; name: string; email: string; username: string | null };
 };
 
 export type ReceivedInvitation = {

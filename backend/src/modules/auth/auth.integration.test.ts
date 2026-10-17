@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { uniqueTestUsername } from '../../test/helpers.js';
 
 process.env.NODE_ENV = 'test';
 process.env.PORT = '4000';
@@ -14,7 +15,7 @@ process.env.JWT_ACCESS_SECRET = 'test-access-secret-must-be-32-characters';
 type SessionBody = {
   success: true;
   data: {
-    user: { id: string; name: string; email: string };
+    user: { id: string; name: string; email: string; username: string | null };
     accessToken: string;
     refreshToken: string;
     expiresIn: number;
@@ -89,10 +90,20 @@ describe('authenticated trips', () => {
     const duplicate = await post('/api/v1/auth/register', {
       name: 'Ada Again',
       email: 'Ada@Example.com',
+      username: uniqueTestUsername('ada-dup@example.com'),
       password,
     });
     assert.equal(duplicate.status, 409);
     assert.equal(json<ErrorBody>(duplicate).error.code, 'EMAIL_IN_USE');
+
+    const duplicateUsername = await post('/api/v1/auth/register', {
+      name: 'Username Clone',
+      email: 'clone@example.com',
+      username: ada.user.username,
+      password,
+    });
+    assert.equal(duplicateUsername.status, 409);
+    assert.equal(json<ErrorBody>(duplicateUsername).error.code, 'USERNAME_IN_USE');
     assert.equal(JSON.stringify(duplicate.body).toLowerCase().includes('passwordhash'), false);
 
     const badLogin = await post('/api/v1/auth/login', {
@@ -114,6 +125,13 @@ describe('authenticated trips', () => {
     assert.equal(signedIn.status, 200);
     const session = json<SessionBody>(signedIn).data;
     assert.equal(session.user.email, 'ada@example.com');
+
+    const signedInByUsername = await post('/api/v1/auth/login', {
+      email: ada.user.username ?? '',
+      password,
+    });
+    assert.equal(signedInByUsername.status, 200);
+    assert.equal(json<SessionBody>(signedInByUsername).data.user.id, ada.user.id);
     assert.equal('passwordHash' in session.user, false);
 
     const created = await post(
@@ -333,7 +351,8 @@ describe('authenticated trips', () => {
 });
 
 async function register(name: string, email: string) {
-  const response = await post('/api/v1/auth/register', { name, email, password });
+  const username = uniqueTestUsername(email);
+  const response = await post('/api/v1/auth/register', { name, email, username, password });
   assert.equal(response.status, 201);
   const body = json<SessionBody>(response);
   assert.equal(JSON.stringify(body).toLowerCase().includes('passwordhash'), false);

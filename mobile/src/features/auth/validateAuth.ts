@@ -1,11 +1,15 @@
+import { normalizeLoginIdentifier, normalizeUsername, validateUsernameFormat } from '@/lib/username';
+
 export type RegisterValues = {
   name: string;
+  username: string;
   email: string;
   password: string;
   confirmPassword: string;
 };
 
 export type LoginValues = {
+  /** Email address or @username (sent as `email` in the API body). */
   email: string;
   password: string;
 };
@@ -16,9 +20,13 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateLogin(values: LoginValues): FieldErrors<LoginValues> {
   const errors: FieldErrors<LoginValues> = {};
-  const email = values.email.trim().toLowerCase();
-  if (!emailPattern.test(email)) {
-    errors.email = 'Enter a valid email address.';
+  const identifier = normalizeLoginIdentifier(values.email);
+  if (!identifier) {
+    errors.email = 'Enter your email or username.';
+  } else if (values.email.trim().replace(/^@+/, '').includes('@')) {
+    if (!emailPattern.test(identifier)) {
+      errors.email = 'Enter a valid email address.';
+    }
   }
   if (!values.password) {
     errors.password = 'Enter your password.';
@@ -37,6 +45,12 @@ export function validateRegister(values: RegisterValues): FieldErrors<RegisterVa
   const email = values.email.trim().toLowerCase();
   if (!emailPattern.test(email)) {
     errors.email = 'Enter a valid email address.';
+  }
+
+  const username = normalizeUsername(values.username);
+  const usernameError = validateUsernameFormat(username);
+  if (usernameError) {
+    errors.username = usernameError;
   }
 
   if (values.password.length < 8) {
