@@ -77,7 +77,7 @@ Follow the same steps as [DEVELOPMENT.md — Object storage (Supabase)](./DEVELO
    | **Branch** | `main` |
    | **Root Directory** | `backend` |
    | **Runtime** | **Node** |
-   | **Build Command** | `npm install && npm run build` |
+   | **Build Command** | `npm install --include=dev && npm run build` |
    | **Start Command** | `npm start` |
    | **Instance type** | Free for demos (sleeps when idle); paid avoids cold starts |
 
@@ -236,10 +236,13 @@ Include short instructions:
 
 ### Build fails: `moduleResolution=node10` has been removed
 
-Render installed **Node 26** and **TypeScript 6**, which rejects legacy `moduleResolution: "node"`. Fix:
+Usually **`NODE_ENV=production`** on Render makes `npm install` **skip devDependencies**, so the build does not use your pinned **TypeScript 5.8** and a incompatible `tsc` runs instead.
 
-- Set **`NODE_VERSION=22.13.0`** on the Render service (and redeploy), and
-- Pull the latest repo (backend pins TypeScript **5.8** and includes `backend/.node-version`).
+Fix:
+
+1. Set **Build Command** to: `npm install --include=dev && npm run build` (not plain `npm install && npm run build`).
+2. Keep **`NODE_VERSION=22.13.0`**.
+3. Pull the latest repo (backend pins TypeScript **~5.8** in `package.json`).
 
 ### API 503 / database disconnected on Render
 
