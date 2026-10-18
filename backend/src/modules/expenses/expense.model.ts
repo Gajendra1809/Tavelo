@@ -1,4 +1,4 @@
-import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import mongoose, { Schema, type HydratedDocument, type InferSchemaType, type Model } from 'mongoose';
 
 const shareSchema = new Schema(
   {
@@ -30,14 +30,7 @@ const expenseSchema = new Schema(
 
 expenseSchema.index({ tripId: 1, expenseDate: -1, createdAt: -1 });
 
-export type ExpenseDocument = InferSchemaType<typeof expenseSchema> & {
-  _id: mongoose.Types.ObjectId;
-  tripId: mongoose.Types.ObjectId;
-  paidBy: mongoose.Types.ObjectId;
-  createdBy: mongoose.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
-};
+export type ExpenseDocument = HydratedDocument<InferSchemaType<typeof expenseSchema>>;
 
 export const ExpenseModel: Model<ExpenseDocument> =
   (mongoose.models.Expense as Model<ExpenseDocument> | undefined) ??

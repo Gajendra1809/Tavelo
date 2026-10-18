@@ -1,4 +1,4 @@
-import mongoose, { Schema, type InferSchemaType } from 'mongoose';
+import mongoose, { Schema, type HydratedDocument, type InferSchemaType, type Model } from 'mongoose';
 
 export const BOOKING_CATEGORIES = [
   'hotel',
@@ -49,10 +49,8 @@ export type BookingAttachmentDocument = InferSchemaType<typeof attachmentSchema>
   _id: mongoose.Types.ObjectId;
 };
 
-export type BookingDocument = InferSchemaType<typeof bookingSchema> & {
-  _id: mongoose.Types.ObjectId;
-  attachments: BookingAttachmentDocument[];
-};
+export type BookingDocument = HydratedDocument<InferSchemaType<typeof bookingSchema>>;
 
-export const BookingModel =
-  mongoose.models.Booking ?? mongoose.model<BookingDocument>('Booking', bookingSchema);
+export const BookingModel: Model<BookingDocument> =
+  (mongoose.models.Booking as Model<BookingDocument> | undefined) ??
+  mongoose.model<BookingDocument>('Booking', bookingSchema);

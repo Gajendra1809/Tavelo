@@ -165,10 +165,13 @@ export async function updateExpense(
   expense.paidBy = new mongoose.Types.ObjectId(nextPaidBy);
   expense.expenseDate = dateOnlyToUtc(nextDate);
   expense.splitMethod = nextSplitMethod;
-  expense.shares = shares.map((share) => ({
-    userId: new mongoose.Types.ObjectId(share.userId),
-    amountMinor: share.amountMinor,
-  }));
+  expense.set(
+    'shares',
+    shares.map((share) => ({
+      userId: new mongoose.Types.ObjectId(share.userId),
+      amountMinor: share.amountMinor,
+    })),
+  );
 
   await expense.save();
   const nextRecipientIds = involvedUserIdsFromExpense(expense);

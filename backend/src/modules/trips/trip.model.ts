@@ -1,4 +1,4 @@
-import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import mongoose, { Schema, type HydratedDocument, type InferSchemaType, type Model } from 'mongoose';
 
 const memberSchema = new Schema(
   {
@@ -26,12 +26,7 @@ const tripSchema = new Schema(
 tripSchema.index({ ownerId: 1, startDate: 1, createdAt: 1 });
 tripSchema.index({ 'members.userId': 1 });
 
-export type TripDocument = InferSchemaType<typeof tripSchema> & {
-  _id: mongoose.Types.ObjectId;
-  ownerId: mongoose.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
-};
+export type TripDocument = HydratedDocument<InferSchemaType<typeof tripSchema>>;
 
 export const TripModel: Model<TripDocument> =
   (mongoose.models.Trip as Model<TripDocument> | undefined) ??

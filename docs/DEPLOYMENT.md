@@ -81,7 +81,7 @@ Follow the same steps as [DEVELOPMENT.md — Object storage (Supabase)](./DEVELO
    | **Start Command** | `npm start` |
    | **Instance type** | Free for demos (sleeps when idle); paid avoids cold starts |
 
-4. Expand **Advanced** → set **Node version** to **22** (matches `backend/package.json` `engines`).
+4. Set **Node version** to **22.13.0** (Render **Environment** → `NODE_VERSION=22.13.0`, or rely on [backend/.node-version](../backend/.node-version)). Avoid Node 26 until the backend TypeScript toolchain is on TS 6 with updated `moduleResolution`.
 
 ### 3.2 Environment variables on Render
 
@@ -233,6 +233,13 @@ Include short instructions:
 ---
 
 ## Troubleshooting
+
+### Build fails: `moduleResolution=node10` has been removed
+
+Render installed **Node 26** and **TypeScript 6**, which rejects legacy `moduleResolution: "node"`. Fix:
+
+- Set **`NODE_VERSION=22.13.0`** on the Render service (and redeploy), and
+- Pull the latest repo (backend pins TypeScript **5.8** and includes `backend/.node-version`).
 
 ### API 503 / database disconnected on Render
 

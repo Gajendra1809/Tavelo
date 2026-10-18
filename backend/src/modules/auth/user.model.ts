@@ -1,4 +1,4 @@
-import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import mongoose, { Schema, type HydratedDocument, type InferSchemaType, type Model } from 'mongoose';
 
 const userSchema = new Schema(
   {
@@ -15,9 +15,7 @@ const userSchema = new Schema(
 userSchema.index({ username: 1 }, { unique: true, sparse: true });
 userSchema.index({ name: 1 });
 
-export type UserDocument = InferSchemaType<typeof userSchema> & {
-  _id: mongoose.Types.ObjectId;
-};
+export type UserDocument = HydratedDocument<InferSchemaType<typeof userSchema>>;
 
 export const UserModel: Model<UserDocument> =
   (mongoose.models.User as Model<UserDocument> | undefined) ??

@@ -115,6 +115,9 @@ export function computeBalances(
   const balances: MemberBalance[] = [];
   for (const [compound, row] of byUserCurrency.entries()) {
     const [userId, currency] = compound.split('\0');
+    if (!userId || !currency) {
+      continue;
+    }
     balances.push({
       userId,
       currency,

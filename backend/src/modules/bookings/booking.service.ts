@@ -19,7 +19,12 @@ import {
   buildBookingAttachmentObjectKey,
 } from '../storage/policy';
 import { loadActorName, notifyBookingEvent } from '../notifications/notification.service';
-import { BookingModel, type BookingAttachmentDocument, type BookingDocument } from './booking.model';
+import {
+  BookingModel,
+  type BookingAttachmentDocument,
+  type BookingCategory,
+  type BookingDocument,
+} from './booking.model';
 import { toBookingResponse, type BookingResponse } from './booking.mapper';
 import type {
   BookingAttachmentUploadIntentInput,
@@ -37,14 +42,14 @@ export async function listTripBookings(
   await requireTripMember(userId, tripId);
   assertValidTripId(tripId);
 
-  const filter: { tripId: mongoose.Types.ObjectId; category?: string } = {
+  const filter: { tripId: mongoose.Types.ObjectId; category?: BookingCategory } = {
     tripId: new mongoose.Types.ObjectId(tripId),
   };
   if (query.category) {
     filter.category = query.category;
   }
 
-  const docs = await BookingModel.find(filter).sort({ startDate: 1, _id: 1 }).lean();
+  const docs = await BookingModel.find(filter).sort({ startDate: 1, _id: 1 });
   const userIds = new Set<string>();
   for (const doc of docs) {
     userIds.add(doc.createdBy.toString());
@@ -57,9 +62,9 @@ export async function listTripBookings(
   const bookings = await Promise.all(
     docs.map((doc) =>
       toBookingResponse(
-        doc as BookingDocument,
+        doc,
         creatorFromMap(doc.createdBy.toString(), profiles),
-        attachmentUploadersMap(doc as BookingDocument, profiles),
+        attachmentUploadersMap(doc, profiles),
       ),
     ),
   );
