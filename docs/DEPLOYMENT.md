@@ -13,6 +13,45 @@ This guide deploys **Tavelo from one GitHub monorepo**:
 
 ---
 
+## Production reference (Tavelo)
+
+These values match the stack that was deployed and used for the first Android preview build. Update this section if you rename services or create a staging environment.
+
+| Item | Value |
+| --- | --- |
+| **GitHub repo** | Monorepo: `backend/`, `mobile/`, `docs/` on `main` |
+| **Production API** | `https://tavelo-api.onrender.com` |
+| **Health check** | `GET https://tavelo-api.onrender.com/api/v1/health` |
+| **Render service** | Web Service, root directory `backend`, Node **22.13.0** |
+| **Render build command** | `npm install --include=dev && npm run build` |
+| **Expo project** | `@gajendrachilhates-team/tavelo` on [expo.dev](https://expo.dev) |
+| **EAS project ID** | `e9ee6c12-19b5-403b-ad09-d685ece26e70` (in [mobile/app.config.ts](../mobile/app.config.ts)) |
+| **Tester Android build** | EAS profile **`preview`** → APK, internal distribution |
+| **APK API URL (baked in)** | From [mobile/eas.json](../mobile/eas.json) → `EXPO_PUBLIC_API_URL` + `APP_ENV=production` |
+
+**Local development vs production mobile**
+
+| Target | API URL config | How you run |
+| --- | --- | --- |
+| Expo Go on LAN | `mobile/.env` → `http://YOUR_LAN_IP:4000` | `npm run dev:mobile` |
+| Installable APK (testers) | `mobile/eas.json` → `https://tavelo-api.onrender.com` | `eas build -p android --profile preview` |
+
+Pushing to GitHub is **not** required before each EAS build (EAS uploads your local `mobile/` tree). You should still commit `app.config.ts`, `eas.json`, and doc changes so the repo matches production.
+
+---
+
+## Repo files for deployment
+
+| File | Role |
+| --- | --- |
+| [render.yaml](../render.yaml) | Optional Render Blueprint; build command includes `--include=dev` |
+| [backend/.node-version](../backend/.node-version) | Pins Node **22.13.0** for Render |
+| [backend/package.json](../backend/package.json) | `engines.node`, TypeScript **~5.8** in devDependencies |
+| [mobile/eas.json](../mobile/eas.json) | EAS build profiles (`preview` = APK for testers) |
+| [mobile/app.config.ts](../mobile/app.config.ts) | Dynamic Expo config; **`extra.eas.projectId`** required for EAS |
+
+---
+
 ## Before you start
 
 - [ ] Code is pushed to **GitHub** (one repo with `backend/`, `mobile/`, `docs/`).
@@ -152,29 +191,47 @@ Local `mobile/.env` can stay on LAN IP for Expo Go; **testers use the EAS APK**,
 
 ## Part 5 — Expo EAS: build an Android APK
 
+All EAS CLI steps run on **your computer** (Cursor integrated terminal or Windows PowerShell), **not** on the expo.dev website. The dashboard is for viewing builds, credentials, and download links after you start a build from the CLI.
+
 ### 5.1 One-time setup
 
-1. Create / sign in at [expo.dev](https://expo.dev).
-2. Install EAS CLI (PowerShell):
+1. Create / sign in at [expo.dev](https://expo.dev) and create a project (e.g. **Tavelo**). **Connect GitHub** on the dashboard is optional; CLI builds upload from your machine.
+2. Install EAS CLI and sign in:
 
    ```powershell
    npm install -g eas-cli
    eas login
    ```
 
-3. From the repo:
+   `eas login` opens a browser once; finish sign-in there.
+
+3. From the repository root:
 
    ```powershell
-   cd mobile
+   cd C:\Users\Asus\Desktop\Tavelo\mobile
    eas init
    ```
 
-   Link the project to your Expo account when prompted. This updates `app.config.ts` / project ID as needed.
+   Choose **Link to existing project** → select **Tavelo** when prompted.
 
-4. The repo already includes [mobile/eas.json](../mobile/eas.json). Open it and replace the placeholder API URL:
+4. **Dynamic config (`app.config.ts`):** EAS cannot auto-write the project ID. If `eas init` prints an error like *Cannot automatically write to dynamic config*, add the ID manually to [mobile/app.config.ts](../mobile/app.config.ts):
+
+   ```typescript
+   extra: {
+     ...config.extra,
+     eas: {
+       projectId: 'YOUR-EAS-PROJECT-UUID',
+     },
+   },
+   ```
+
+   The committed project uses `e9ee6c12-19b5-403b-ad09-d685ece26e70`.
+
+5. Confirm [mobile/eas.json](../mobile/eas.json) **`preview`** profile env:
 
    ```json
-   "EXPO_PUBLIC_API_URL": "https://YOUR-SERVICE.onrender.com"
+   "APP_ENV": "production",
+   "EXPO_PUBLIC_API_URL": "https://tavelo-api.onrender.com"
    ```
 
 ### 5.2 Build a preview APK (internal testing)
@@ -184,13 +241,18 @@ cd mobile
 eas build -p android --profile preview
 ```
 
-- First build may ask you to create an **Android keystore** — let EAS manage it (recommended).
-- Wait for the build on [expo.dev](https://expo.dev) → your project → **Builds**.
+During the first Android build:
 
-When it finishes:
+- **Generate a new Android Keystore?** → **yes**, and let **EAS store credentials** on Expo’s servers (required for updates; do not lose access to this Expo account).
+- **Install and run on emulator?** → **n** unless an Android emulator is running and you want the CLI to sideload.
 
-- Open the build page → **Download** or scan the **QR code** on an Android phone.
-- Install the APK. Android may prompt **Allow from this source** for Chrome or Files.
+When logs show **Build finished**:
+
+- Open the URL printed in the terminal (or **expo.dev → Tavelo → Activity / Builds**).
+- On an Android phone: open that page → install / download APK, or scan the terminal **QR code**.
+- Allow **Install unknown apps** for the browser if Android blocks the install.
+
+Successful build logs look like: **~257 packages** on Render for the API; on EAS, **Compressed project files** → **Uploaded to EAS** → **Build finished**.
 
 ### 5.3 Share with testers
 
@@ -268,6 +330,14 @@ Fix:
 ### JWT / auth works locally but not production
 
 - Ensure production uses its own `JWT_ACCESS_SECRET`; tokens from dev API are invalid on prod.
+
+### Render log: `CORS_ORIGINS is empty`
+
+- Normal for **native Android** (no browser `Origin`). Set `CORS_ORIGINS` only if you ship **Expo web** from a specific HTTPS origin.
+
+### `eas init` fails on `app.config.ts`
+
+- Add `extra.eas.projectId` manually (see Part 5.1). Then run `eas build` without re-running `init`.
 
 ---
 

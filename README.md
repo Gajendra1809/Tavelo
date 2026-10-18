@@ -69,6 +69,10 @@ npm run dev:mobile
 
 Open the project in Expo Go and tap **Check connection**. A reachable API shows “API: Reachable”. A working database shows “Database: Connected”. If the API is up and MongoDB is not, the database line stays “Not connected”.
 
+## Production and tester APK
+
+The API can run on [Render](https://render.com) (`backend/`, MongoDB Atlas, optional Supabase). Android testers install a build from [Expo EAS](https://expo.dev) (`eas build -p android --profile preview`), not Expo Go. End-to-end steps, URLs, and troubleshooting: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Checks
 
 ```powershell

@@ -4,7 +4,11 @@ Tavelo is a small monorepo. The Expo app calls a single Express API. The API is 
 
 ```text
 Expo app  --HTTP JSON-->  Express /api/v1  -->  MongoDB Atlas
+                              |
+                              +--> Supabase Storage (optional; signed URLs)
 ```
+
+**Production (reference):** API on Render (`https://tavelo-api.onrender.com`), same Atlas cluster as configured in Render env, optional Supabase for media. Testers install an **EAS-built Android APK** that reads `EXPO_PUBLIC_API_URL` from the `preview` profile in `mobile/eas.json`. Full steps: [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 The phone never receives the database connection string or any other server secret. Expo only sees variables prefixed with `EXPO_PUBLIC_`.
 

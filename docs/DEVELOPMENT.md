@@ -64,6 +64,8 @@ npm run build --prefix backend
 npm run start --prefix backend
 ```
 
+**Render / CI:** With `NODE_ENV=production`, plain `npm install` skips devDependencies (including TypeScript). Use `npm install --include=dev && npm run build` and Node **22.13.0** — see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ## Call the health endpoint
 
 With the API running:
@@ -149,9 +151,12 @@ Examples:
 
 | Where the app runs             | Value                      |
 | ------------------------------ | -------------------------- |
-| Physical phone                 | `http://192.168.1.10:4000` |
+| Physical phone (Expo Go)       | `http://192.168.1.10:4000` |
 | Android emulator               | `http://10.0.2.2:4000`     |
 | iOS simulator on this computer | `http://localhost:4000`    |
+| **EAS preview APK (testers)**  | Set in [mobile/eas.json](../mobile/eas.json), not `.env` — e.g. `https://tavelo-api.onrender.com` |
+
+For Render, EAS, and APK distribution, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 `192.168.1.10` is only an example. Replace it with this computer’s address.
 
