@@ -20,6 +20,7 @@ import { ApiError } from '@/lib/apiClient';
 import { isLoopbackUrl, isTetheredPcLanUrl, readApiConfig } from '@/lib/config';
 import { applyUserUpdate } from '@/lib/session';
 import { logAppError, userFacingMessage } from '@/lib/errorReport';
+import { bumpAvatarDisplayGeneration, avatarImageCacheKey } from '@/lib/avatarDisplay';
 import { deleteAvatar, mimeFromUri, uploadAvatarFromUri } from '@/services/mediaService';
 import { resolveLocalByteSize } from '@/services/storageUpload';
 import { colors, spacing, surfaceCard, typography } from '@/theme';
@@ -69,7 +70,9 @@ export function ProfileScreen() {
       const contentType = asset.mimeType ?? mimeFromUri(asset.uri);
       const updated = await uploadAvatarFromUri(asset.uri, contentType, byteSize);
       profileCache.invalidate();
+      bumpAvatarDisplayGeneration();
       await applyUserUpdate(updated);
+      await refreshProfile({ force: true });
     } catch (error) {
       logAppError('profile avatar upload', error);
       setPhotoError(userFacingMessage(error, 'Could not update your profile photo.'));
@@ -87,7 +90,9 @@ export function ProfileScreen() {
     try {
       const updated = await deleteAvatar();
       profileCache.invalidate();
+      bumpAvatarDisplayGeneration();
       await applyUserUpdate(updated);
+      await refreshProfile({ force: true });
     } catch (error) {
       setPhotoError(
         error instanceof ApiError ? error.message : 'Could not remove your profile photo.',
@@ -133,6 +138,7 @@ export function ProfileScreen() {
         <EditableAvatar
           name={user?.name ?? 'Traveler'}
           uri={user?.avatarUrl}
+          cacheKey={user?.id ? avatarImageCacheKey(user.id, user.avatarUrl) : null}
           disabled={photoBusy}
           onPress={() => void changePhoto()}
         />

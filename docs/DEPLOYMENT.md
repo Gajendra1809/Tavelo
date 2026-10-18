@@ -269,7 +269,7 @@ Include short instructions:
 
 ### 5.4 Rebuild after API or app changes
 
-- **App code or UI:** run `eas build` again with the same profile.
+- **App code, UI, or app icon** (`mobile/assets/icon.png`, Android adaptive icons): run `eas build` again with the same profile.
 - **Only API URL change:** update `eas.json` env → new build (URL is compiled into the bundle).
 - **Backend-only fix:** push to GitHub → Render auto-redeploys; no new APK unless the app must change.
 

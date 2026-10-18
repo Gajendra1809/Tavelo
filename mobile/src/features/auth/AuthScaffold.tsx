@@ -1,7 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,22 +22,55 @@ type AuthScaffoldProps = {
   footer: ReactNode;
 };
 
+const HERO_EXPANDED = 220;
+const HERO_COMPACT = 96;
+
 export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffoldProps) {
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      });
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const heroHeight = keyboardVisible ? HERO_COMPACT : HERO_EXPANDED;
+
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safe}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.md : 0}
       >
         <ScrollView
+          ref={scrollRef}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.content}
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={[
+            styles.content,
+            keyboardVisible ? styles.contentKeyboard : null,
+          ]}
         >
-          <View style={styles.heroWrap}>
+          <View style={[styles.heroWrap, { height: heroHeight }]}>
             <Image
               accessibilityIgnoresInvertColors
               source={require('../../../assets/images/auth-road.jpg')}
-              style={styles.hero}
+              style={[styles.hero, { height: heroHeight }]}
             />
             <LinearGradient
               colors={['rgba(250,248,242,0)', colors.ivory]}
@@ -66,23 +101,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    flexGrow: 1,
     paddingBottom: spacing.xxl,
     backgroundColor: colors.ivory,
   },
+  contentKeyboard: {
+    paddingBottom: spacing.xxl * 2,
+  },
   heroWrap: {
-    height: 280,
     backgroundColor: colors.sky,
+    overflow: 'hidden',
   },
   hero: {
     width: '100%',
-    height: 280,
   },
   fade: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 110,
+    height: 72,
   },
   sheet: {
     marginTop: -spacing.xl,

@@ -2,15 +2,13 @@ import { useFocusEffect, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BackHandler,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { BottomFormSheet } from '@/components/BottomFormSheet';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -20,7 +18,6 @@ import { TimeField } from '@/components/TimeField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { Skeleton } from '@/components/Skeleton';
-import { useBottomSafePadding } from '@/hooks/useBottomSafePadding';
 import { activityCache } from '@/lib/cache/activityCache';
 import { ApiError } from '@/lib/apiClient';
 import {
@@ -57,7 +54,6 @@ const emptyForm = (date: string): ActivityFormValues => ({
 
 export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
   const navigation = useNavigation();
-  const modalBottomPad = useBottomSafePadding(spacing.xxl);
   const days = useMemo(() => enumerateDateRange(startDate, endDate), [startDate, endDate]);
   const defaultDay = useMemo(() => {
     const today = todayDateInput();
@@ -319,26 +315,11 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
           ))
         : null}
 
-      <Modal
+      <BottomFormSheet
         visible={formVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={closeForm}
-        statusBarTranslucent
+        onClose={closeForm}
+        title={editing ? 'Edit activity' : 'Add activity'}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalBackdrop}
-        >
-          <Pressable accessibilityRole="button" accessibilityLabel="Close form" style={styles.modalDismiss} onPress={closeForm} />
-          {formVisible ? (
-            <View style={styles.modalCard}>
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.modalScroll, { paddingBottom: modalBottomPad }]}
-              >
-                <Text style={styles.modalTitle}>{editing ? 'Edit activity' : 'Add activity'}</Text>
                 <FormField
                   label="Title"
                   value={formValues.title}
@@ -405,11 +386,7 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
                     disabled={saving}
                   />
                 </View>
-              </ScrollView>
-            </View>
-          ) : null}
-        </KeyboardAvoidingView>
-      </Modal>
+      </BottomFormSheet>
 
       <ConfirmDialog
         visible={deleteTarget !== null}
@@ -513,31 +490,6 @@ const styles = StyleSheet.create({
   deleteLabel: {
     ...typography.label,
     color: colors.danger,
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalDismiss: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(30, 41, 59, 0.45)',
-  },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    maxHeight: '92%',
-    zIndex: 1,
-  },
-  modalScroll: {
-    padding: spacing.xl,
-    gap: spacing.sm,
-  },
-  modalTitle: {
-    ...typography.title,
-    fontSize: 22,
-    color: colors.ink,
-    marginBottom: spacing.sm,
   },
   modalActions: {
     gap: spacing.md,

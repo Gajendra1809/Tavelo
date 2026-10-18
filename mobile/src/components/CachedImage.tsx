@@ -26,7 +26,7 @@ export function CachedImage({
       style={[styles.image, style]}
       contentFit={contentFit}
       cachePolicy="memory-disk"
-      recyclingKey={cacheKey ?? uri}
+      recyclingKey={cacheKey ? `${cacheKey}|${uri}` : uri}
       onError={onError}
     />
   );

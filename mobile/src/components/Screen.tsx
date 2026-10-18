@@ -41,6 +41,8 @@ export function Screen({
               { paddingBottom: footer ? spacing.xxl : spacing.xxl + footerInset },
             ]}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+            keyboardDismissMode="on-drag"
             refreshControl={
               onRefresh ? (
                 <RefreshControl

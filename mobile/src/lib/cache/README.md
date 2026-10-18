@@ -14,6 +14,7 @@ Product-level rules and backend signing behavior are in [docs/ARCHITECTURE.md](.
 | `expenseCache.ts` | `expenseCache` | `EXPENSE_BUNDLE_TTL_MS` (60s) | Trip + expenses + balances + settlements bundle |
 | `invitationCache.ts` | `invitationCache` | `INVITATION_LIST_TTL_MS` (60s) | Received invitations list |
 | `profileCache.ts` | `profileCache` | `PROFILE_TTL_MS` (120s) | Last successful `GET /users/me` timestamp |
+| `avatarDisplay.ts` | `bumpAvatarDisplayGeneration`, `avatarImageCacheKey` | (in-memory generation) | Busts `expo-image` cache after avatar upload/delete when signed URLs repeat |
 | `activityCache.ts` | `activityCache` | `ACTIVITY_DAY_TTL_MS` (60s) | Itinerary activities for `tripId` + calendar day |
 
 ## Hooks

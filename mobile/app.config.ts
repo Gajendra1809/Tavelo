@@ -18,7 +18,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     softwareKeyboardLayoutMode: 'resize',
     predictiveBackGestureEnabled: false,
     adaptiveIcon: {
-      backgroundColor: '#E6F4FE',
+      backgroundColor: '#087F78',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',

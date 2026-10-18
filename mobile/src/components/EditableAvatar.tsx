@@ -6,6 +6,7 @@ import { colors, shadow } from '@/theme';
 type EditableAvatarProps = {
   name: string;
   uri?: string | null;
+  cacheKey?: string | null;
   disabled?: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
@@ -14,7 +15,14 @@ type EditableAvatarProps = {
 const AVATAR_SIZE = 96;
 const BADGE_SIZE = 32;
 
-export function EditableAvatar({ name, uri, disabled = false, onPress, style }: EditableAvatarProps) {
+export function EditableAvatar({
+  name,
+  uri,
+  cacheKey,
+  disabled = false,
+  onPress,
+  style,
+}: EditableAvatarProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -24,7 +32,7 @@ export function EditableAvatar({ name, uri, disabled = false, onPress, style }: 
       onPress={onPress}
       style={({ pressed }) => [styles.wrap, pressed && !disabled ? styles.pressed : null, style]}
     >
-      <UserAvatar name={name} uri={uri} size="lg" />
+      <UserAvatar name={name} uri={uri} cacheKey={cacheKey} size="lg" />
       <View style={styles.badge}>
         <SymbolView
           name={{ android: 'photo_camera', web: 'photo_camera' }}

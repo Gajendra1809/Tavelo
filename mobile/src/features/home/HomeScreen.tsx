@@ -10,6 +10,7 @@ import { TripCard } from '@/components/TripCard';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { seedTripForNavigation, useTrips } from '@/hooks/useTrips';
+import { avatarImageCacheKey } from '@/lib/avatarDisplay';
 import { splitTrips } from '@/lib/tripGroups';
 import { colors, spacing, typography } from '@/theme';
 
@@ -26,7 +27,7 @@ export function HomeScreen() {
           <UserAvatar
             name={user?.name ?? 'Traveler'}
             uri={user?.avatarUrl}
-            cacheKey={user?.id ? `avatar:${user.id}` : null}
+            cacheKey={user?.id ? avatarImageCacheKey(user.id, user.avatarUrl) : null}
             size="sm"
           />
           <View style={styles.introCopy}>

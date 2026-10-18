@@ -1,24 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { BottomFormSheet } from '@/components/BottomFormSheet';
 import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { useBottomSafePadding } from '@/hooks/useBottomSafePadding';
 import { ApiError } from '@/lib/apiClient';
 import { normalizeUsername, validateUsernameFormat } from '@/lib/username';
 import { checkProfileUsernameAvailability, updateMyProfile } from '@/services/userService';
 import type { AuthUser } from '@/types/auth';
-import { colors, radius, spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 
 type ProfileEditModalProps = {
   visible: boolean;
@@ -28,7 +19,6 @@ type ProfileEditModalProps = {
 };
 
 export function ProfileEditModal({ visible, user, onClose, onSaved }: ProfileEditModalProps) {
-  const modalBottomPad = useBottomSafePadding();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [username, setUsername] = useState(user.username ?? '');
@@ -101,54 +91,43 @@ export function ProfileEditModal({ visible, user, onClose, onSaved }: ProfileEdi
       });
   }, [debouncedUsername, user.username, visible]);
 
-  const usernameUnchanged = normalizeUsername(username) === (user.username ?? '');
-  const usernameFieldOk =
-    usernameUnchanged ||
-    (!username.trim() && !user.username) ||
-    (usernameOk && normalizeUsername(username) === debouncedUsername);
-
-  const saveDisabled =
-    saving || (!usernameUnchanged && checkingUsername) || !usernameFieldOk;
-
   async function save() {
-    if (saveDisabled) {
+    if (saving) {
       return;
     }
+    setError(null);
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
+    const normalized = normalizeUsername(username);
     if (!trimmedName) {
-      setError('Enter your name.');
+      setError('Name is required.');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setError('Enter a valid email address.');
+    if (!trimmedEmail.includes('@')) {
+      setError('Enter a valid email.');
       return;
     }
-    if (user.username && !normalizeUsername(username)) {
+    if (normalized) {
+      const formatError = validateUsernameFormat(normalized);
+      if (formatError) {
+        setError(formatError);
+        return;
+      }
+      if (!usernameOk) {
+        setError(usernameHint ?? 'Choose an available username.');
+        return;
+      }
+    } else if (user.username) {
       setError('Username cannot be removed once set.');
       return;
     }
-
-    const payload: { name?: string; email?: string; username?: string } = {};
-    if (trimmedName !== user.name) {
-      payload.name = trimmedName;
-    }
-    if (trimmedEmail !== user.email) {
-      payload.email = trimmedEmail;
-    }
-    const nextUsername = normalizeUsername(username);
-    if (nextUsername && nextUsername !== (user.username ?? '')) {
-      payload.username = nextUsername;
-    }
-    if (Object.keys(payload).length === 0) {
-      onClose();
-      return;
-    }
-
     setSaving(true);
-    setError(null);
     try {
-      const updated = await updateMyProfile(payload);
+      const updated = await updateMyProfile({
+        name: trimmedName,
+        email: trimmedEmail,
+        username: normalized || undefined,
+      });
       onSaved(updated);
       onClose();
     } catch (failure) {
@@ -158,101 +137,53 @@ export function ProfileEditModal({ visible, user, onClose, onSaved }: ProfileEdi
     }
   }
 
+  const usernameUnchanged = normalizeUsername(username) === (user.username ?? '');
+  const saveDisabled = saving || checkingUsername || (!usernameUnchanged && !usernameOk);
+
   const hintColor =
     usernameOk || usernameUnchanged ? colors.primary : checkingUsername ? colors.muted : colors.danger;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.backdrop}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close profile editor"
-          style={styles.dismiss}
-          onPress={onClose}
+    <BottomFormSheet visible={visible} onClose={onClose} title="Edit profile">
+      <FormField label="Full name" value={name} onChangeText={setName} placeholder="Your name" />
+      <FormField
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="you@email.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+        textContentType="emailAddress"
+      />
+      <FormField
+        label="Username"
+        value={username}
+        onChangeText={(value) => {
+          setUsername(value.replace(/\s/g, '').replace(/^@+/, ''));
+          setError(null);
+        }}
+        placeholder="your_username"
+        autoCapitalize="none"
+        autoComplete="username"
+        textContentType="username"
+      />
+      {usernameHint ? <Text style={[styles.hint, { color: hintColor }]}>{usernameHint}</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={styles.actions}>
+        <PrimaryButton
+          label="Save changes"
+          onPress={() => void save()}
+          loading={saving}
+          disabled={saveDisabled}
         />
-        <View style={styles.sheet}>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.scroll, { paddingBottom: modalBottomPad }]}
-          >
-            <Text style={styles.title}>Edit profile</Text>
-            <FormField label="Full name" value={name} onChangeText={setName} placeholder="Your name" />
-            <FormField
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              textContentType="emailAddress"
-            />
-            <FormField
-              label="Username"
-              value={username}
-              onChangeText={(value) => {
-                setUsername(value.replace(/\s/g, '').replace(/^@+/, ''));
-                setError(null);
-              }}
-              placeholder="your_username"
-              autoCapitalize="none"
-              autoComplete="username"
-              textContentType="username"
-            />
-            {usernameHint ? <Text style={[styles.hint, { color: hintColor }]}>{usernameHint}</Text> : null}
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            <View style={styles.actions}>
-              <PrimaryButton
-                label="Save changes"
-                onPress={() => void save()}
-                loading={saving}
-                disabled={saveDisabled}
-              />
-              <SecondaryButton label="Cancel" onPress={onClose} disabled={saving} />
-            </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+        <SecondaryButton label="Cancel" onPress={onClose} disabled={saving} />
+      </View>
+    </BottomFormSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  dismiss: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(30, 41, 59, 0.45)',
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    maxHeight: '92%',
-    zIndex: 1,
-  },
-  scroll: {
-    padding: spacing.xl,
-    gap: spacing.lg,
-  },
-  title: {
-    ...typography.cardTitle,
-    color: colors.ink,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
   hint: {
     ...typography.body,
     fontSize: 13,
