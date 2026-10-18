@@ -4,6 +4,9 @@ import { requireTripMember } from '../trips/trip.service';
 import { dateOnlyToUtc, toDateOnly } from '../trips/trip.mapper';
 import { AppError } from '../../utils/AppError';
 import { ItineraryActivityModel } from './activity.model';
+import { toPlaceResponse, type TaveloPlaceResponse } from '../places/place.mapper';
+import { resolveActivityLocation } from '../places/place.sync';
+import type { PlaceDocument } from '../places/place.model';
 import type { CreateActivityInput, ListActivitiesQuery, UpdateActivityInput } from './activity.schema';
 
 export type ActivityResponse = {
@@ -11,6 +14,7 @@ export type ActivityResponse = {
   tripId: string;
   title: string;
   location: string | null;
+  place: TaveloPlaceResponse | null;
   date: string;
   startTime: string | null;
   endTime: string | null;
@@ -56,10 +60,12 @@ export async function createActivity(
   const trip = await requireTripMember(userId, tripId);
   assertDateWithinTrip(trip, input.date);
 
+  const resolved = resolveActivityLocation(input, 200);
   const activity = await ItineraryActivityModel.create({
     tripId: trip._id,
     title: input.title,
-    location: input.location ?? null,
+    location: resolved.label,
+    place: resolved.place,
     date: dateOnlyToUtc(input.date),
     startTime: input.startTime ?? null,
     endTime: input.endTime ?? null,
@@ -83,8 +89,16 @@ export async function updateActivity(
   if (input.title !== undefined) {
     activity.title = input.title;
   }
-  if (input.location !== undefined) {
+  if (input.place !== undefined) {
+    const resolved = resolveActivityLocation(
+      { location: input.location, place: input.place },
+      200,
+    );
+    activity.location = resolved.label;
+    activity.place = resolved.place;
+  } else if (input.location !== undefined) {
     activity.location = input.location;
+    activity.place = null;
   }
   if (input.date !== undefined) {
     assertDateWithinTrip(trip, input.date);
@@ -181,6 +195,7 @@ function toActivityResponse(
     tripId: { toString(): string };
     title: string;
     location?: string | null;
+    place?: PlaceDocument | null;
     date: Date;
     startTime?: string | null;
     endTime?: string | null;
@@ -197,6 +212,7 @@ function toActivityResponse(
     tripId: activity.tripId.toString(),
     title: activity.title,
     location: activity.location ?? null,
+    place: toPlaceResponse(activity.place),
     date: toDateOnly(activity.date),
     startTime: activity.startTime ?? null,
     endTime: activity.endTime ?? null,

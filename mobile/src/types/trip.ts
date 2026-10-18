@@ -1,3 +1,5 @@
+import type { TaveloPlace } from '@/types/place';
+
 export type TripMember = {
   userId: string;
   role: 'owner' | 'member';
@@ -10,6 +12,7 @@ export type Trip = {
   name: string;
   title: string;
   destination: string;
+  destinationPlace: TaveloPlace | null;
   startDate: string;
   endDate: string;
   description: string;
@@ -24,6 +27,7 @@ export type Trip = {
 export type CreateTripInput = {
   name: string;
   destination: string;
+  destinationPlace?: TaveloPlace | null;
   startDate: string;
   endDate: string;
   description: string;
@@ -32,6 +36,7 @@ export type CreateTripInput = {
 export type UpdateTripInput = {
   name?: string;
   destination?: string;
+  destinationPlace?: TaveloPlace | null;
   startDate?: string;
   endDate?: string;
   description?: string;

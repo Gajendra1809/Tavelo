@@ -26,6 +26,7 @@ import {
   type BookingDocument,
 } from './booking.model';
 import { toBookingResponse, type BookingResponse } from './booking.mapper';
+import { resolveBookingLocation } from '../places/place.sync';
 import type {
   BookingAttachmentUploadIntentInput,
   CompleteBookingAttachmentInput,
@@ -91,6 +92,7 @@ export async function createTripBooking(
   assertValidTripId(tripId);
   assertBookingDateWithinTrip(trip, input.startDate, input.endDate ?? input.startDate);
 
+  const resolvedLocation = resolveBookingLocation(input, 300);
   const doc = await BookingModel.create({
     tripId: trip._id,
     title: input.title,
@@ -98,7 +100,8 @@ export async function createTripBooking(
     provider: input.provider ?? '',
     startDate: dateOnlyToUtc(input.startDate),
     endDate: input.endDate ? dateOnlyToUtc(input.endDate) : null,
-    location: input.location ?? '',
+    location: resolvedLocation.location,
+    place: resolvedLocation.place,
     route: input.route ?? '',
     bookingReference: input.bookingReference ?? '',
     notes: input.notes ?? '',
@@ -152,8 +155,16 @@ export async function updateTripBooking(
   if (input.endDate !== undefined) {
     doc.endDate = input.endDate ? dateOnlyToUtc(input.endDate) : null;
   }
-  if (input.location !== undefined) {
+  if (input.place !== undefined) {
+    const resolved = resolveBookingLocation(
+      { location: input.location, place: input.place },
+      300,
+    );
+    doc.location = resolved.location;
+    doc.place = resolved.place;
+  } else if (input.location !== undefined) {
     doc.location = input.location;
+    doc.place = null;
   }
   if (input.route !== undefined) {
     doc.route = input.route;

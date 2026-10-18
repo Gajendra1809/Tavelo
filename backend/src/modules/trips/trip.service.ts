@@ -15,6 +15,7 @@ import {
 } from './trip.mapper';
 import { resolveCoverImageUrl } from './tripCoverDisplay';
 import { TripModel } from './trip.model';
+import { legacyLabelFromPlace, toPlaceDocument } from '../places/place.mapper';
 import type { CreateTripInput, UpdateTripInput } from './trip.schema';
 
 export async function listTrips(ownerId: string): Promise<TripResponse[]> {
@@ -36,9 +37,17 @@ export async function getTrip(ownerId: string, id: string): Promise<TripResponse
 
 export async function createTrip(ownerId: string, input: CreateTripInput): Promise<TripResponse> {
   assertDatabaseConnected();
+  const destinationPlaceDoc = input.destinationPlace
+    ? toPlaceDocument(input.destinationPlace)
+    : null;
+  const destination = destinationPlaceDoc
+    ? legacyLabelFromPlace(input.destinationPlace!, 120)
+    : input.destination;
+
   const trip = await TripModel.create({
     name: input.name,
-    destination: input.destination,
+    destination,
+    destinationPlace: destinationPlaceDoc,
     startDate: dateOnlyToUtc(input.startDate),
     endDate: dateOnlyToUtc(input.endDate),
     description: input.description,
@@ -60,8 +69,19 @@ export async function updateTrip(
   if (input.name !== undefined) {
     existing.name = input.name;
   }
-  if (input.destination !== undefined) {
+  if (input.destinationPlace !== undefined) {
+    if (input.destinationPlace) {
+      existing.destinationPlace = toPlaceDocument(input.destinationPlace);
+      existing.destination = legacyLabelFromPlace(input.destinationPlace, 120);
+    } else {
+      existing.destinationPlace = null;
+      if (input.destination !== undefined) {
+        existing.destination = input.destination;
+      }
+    }
+  } else if (input.destination !== undefined) {
     existing.destination = input.destination;
+    existing.destinationPlace = null;
   }
   if (input.description !== undefined) {
     existing.description = input.description;

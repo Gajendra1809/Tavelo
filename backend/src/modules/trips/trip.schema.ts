@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { nullableTaveloPlaceSchema } from '../places/place.schema';
 
 const dateOnly = z
   .string()
@@ -21,6 +22,7 @@ export const createTripSchema = z
       .max(500, 'Use 500 characters or fewer.')
       .optional()
       .default(''),
+    destinationPlace: nullableTaveloPlaceSchema.optional(),
   })
   .strip()
   .refine((trip) => trip.endDate >= trip.startDate, {
@@ -44,6 +46,7 @@ export const updateTripSchema = z
     startDate: dateOnly.optional(),
     endDate: dateOnly.optional(),
     description: z.string().trim().max(500, 'Use 500 characters or fewer.').optional(),
+    destinationPlace: nullableTaveloPlaceSchema.optional(),
   })
   .strip()
   .refine((trip) => Object.values(trip).some((value) => value !== undefined), {

@@ -1,14 +1,24 @@
 import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
+import { LocationField } from '@/components/LocationField';
+import type { TaveloPlace } from '@/types/place';
 import type { TripFormErrors, TripFormValues } from './validateTripForm';
 
 type TripFormFieldsProps = {
   values: TripFormValues;
   errors: TripFormErrors;
+  destinationPlace: TaveloPlace | null;
   onChange: (key: keyof TripFormValues, value: string) => void;
+  onDestinationPlaceChange: (place: TaveloPlace | null) => void;
 };
 
-export function TripFormFields({ values, errors, onChange }: TripFormFieldsProps) {
+export function TripFormFields({
+  values,
+  errors,
+  destinationPlace,
+  onChange,
+  onDestinationPlaceChange,
+}: TripFormFieldsProps) {
   return (
     <>
       <FormField
@@ -18,10 +28,13 @@ export function TripFormFields({ values, errors, onChange }: TripFormFieldsProps
         error={errors.name}
         placeholder="Summer with friends"
       />
-      <FormField
+      <LocationField
         label="Destination"
-        value={values.destination}
-        onChangeText={(value) => onChange('destination', value)}
+        place={destinationPlace}
+        onPlaceChange={(place) => {
+          onDestinationPlaceChange(place);
+          onChange('destination', place?.name ?? '');
+        }}
         error={errors.destination}
         placeholder="City or region"
       />

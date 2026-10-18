@@ -23,6 +23,8 @@ import {
   uploadBookingAttachment,
 } from '@/services/bookingService';
 import type { TripBooking } from '@/types/booking';
+import { LocationInlineSummary } from '@/features/location/components/LocationInlineSummary';
+import { resolvePlace } from '@/features/location/placeHelpers';
 import { colors, spacing, surfaceCard, typography } from '@/theme';
 
 type Props = {
@@ -156,7 +158,11 @@ export function BookingDetailScreen({ tripId, bookingId }: Props) {
           {booking.provider ? <Text style={styles.meta}>{booking.provider}</Text> : null}
           <Text style={styles.meta}>{dates}</Text>
           {booking.route ? <Text style={styles.meta}>{booking.route}</Text> : null}
-          {booking.location ? <Text style={styles.meta}>{booking.location}</Text> : null}
+          {booking.location || booking.place ? (
+            <LocationInlineSummary
+              place={resolvePlace(booking.place, booking.location)}
+            />
+          ) : null}
           {booking.bookingReference ? (
             <Text style={styles.ref}>Ref: {booking.bookingReference}</Text>
           ) : null}

@@ -1,3 +1,6 @@
+import { toPlaceResponse, type TaveloPlaceResponse } from '../places/place.mapper';
+import type { PlaceDocument } from '../places/place.model';
+
 export type TripMemberResponse = {
   userId: string;
   role: 'owner' | 'member';
@@ -10,6 +13,7 @@ export type TripResponse = {
   name: string;
   title: string;
   destination: string;
+  destinationPlace: TaveloPlaceResponse | null;
   startDate: string;
   endDate: string;
   description: string;
@@ -30,6 +34,7 @@ export type TripRecord = {
   _id: { toString(): string };
   name: string;
   destination: string;
+  destinationPlace?: PlaceDocument | null;
   startDate: Date;
   endDate: Date;
   description?: string;
@@ -67,6 +72,7 @@ export function toTripResponse(
     name: record.name,
     title: record.name,
     destination: record.destination,
+    destinationPlace: toPlaceResponse(record.destinationPlace),
     startDate: toDateOnly(record.startDate),
     endDate: toDateOnly(record.endDate),
     description: record.description ?? '',

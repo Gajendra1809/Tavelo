@@ -1,3 +1,5 @@
+import type { TaveloPlace } from '@/types/place';
+
 export const BOOKING_CATEGORIES = [
   'hotel',
   'train',
@@ -37,6 +39,7 @@ export type TripBooking = {
   startDate: string;
   endDate: string | null;
   location: string;
+  place: TaveloPlace | null;
   route: string;
   bookingReference: string;
   notes: string;
@@ -63,6 +66,7 @@ export type BookingFormValues = {
   startDate: string;
   endDate: string;
   location: string;
+  place: TaveloPlace | null;
   route: string;
   bookingReference: string;
   notes: string;

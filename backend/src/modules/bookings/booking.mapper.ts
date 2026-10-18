@@ -1,3 +1,4 @@
+import { toPlaceResponse, type TaveloPlaceResponse } from '../places/place.mapper';
 import { createPresignedGetUrl } from '../storage/objectStore';
 import { toDateOnly } from '../trips/trip.mapper';
 import type { BookingAttachmentDocument, BookingDocument } from './booking.model';
@@ -31,6 +32,7 @@ export type BookingResponse = {
   startDate: string;
   endDate: string | null;
   location: string;
+  place: TaveloPlaceResponse | null;
   route: string;
   bookingReference: string;
   notes: string;
@@ -61,6 +63,7 @@ export async function toBookingResponse(
     startDate: toDateOnly(doc.startDate),
     endDate: doc.endDate ? toDateOnly(doc.endDate) : null,
     location: doc.location ?? '',
+    place: toPlaceResponse(doc.place),
     route: doc.route ?? '',
     bookingReference: doc.bookingReference ?? '',
     notes: doc.notes ?? '',

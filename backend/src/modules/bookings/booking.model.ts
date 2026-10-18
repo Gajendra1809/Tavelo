@@ -1,4 +1,5 @@
 import mongoose, { Schema, type HydratedDocument, type InferSchemaType, type Model } from 'mongoose';
+import { placeMongooseSchema } from '../places/place.model';
 
 export const BOOKING_CATEGORIES = [
   'hotel',
@@ -34,6 +35,7 @@ const bookingSchema = new Schema(
     startDate: { type: Date, required: true },
     endDate: { type: Date, default: null },
     location: { type: String, default: '', trim: true },
+    place: { type: placeMongooseSchema, default: null },
     route: { type: String, default: '', trim: true },
     bookingReference: { type: String, default: '', trim: true },
     notes: { type: String, default: '', trim: true },

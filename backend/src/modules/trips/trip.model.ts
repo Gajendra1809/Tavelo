@@ -1,4 +1,5 @@
 import mongoose, { Schema, type HydratedDocument, type InferSchemaType, type Model } from 'mongoose';
+import { placeMongooseSchema } from '../places/place.model';
 
 const memberSchema = new Schema(
   {
@@ -12,6 +13,7 @@ const tripSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 80 },
     destination: { type: String, required: true, trim: true, maxlength: 120 },
+    destinationPlace: { type: placeMongooseSchema, default: null },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     description: { type: String, default: '', maxlength: 500 },

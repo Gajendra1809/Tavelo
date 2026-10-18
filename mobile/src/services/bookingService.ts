@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 import { TRIPS_PATH } from '@/constants/api';
 import { apiRequest } from '@/lib/apiClient';
+import { normalizeBooking } from '@/lib/normalizePlaceFields';
 import { isAllowedBookingMime, normalizeBookingMime } from '@/lib/mimeTypes';
 import {
   putLocalFileToSignedUrl,
@@ -26,11 +27,15 @@ export async function listTripBookings(
   category?: BookingCategory,
 ): Promise<TripBookingsList> {
   const params = category ? `?category=${encodeURIComponent(category)}` : '';
-  return apiRequest<TripBookingsList>(`${bookingsBase(tripId)}${params}`);
+  const result = await apiRequest<TripBookingsList>(`${bookingsBase(tripId)}${params}`);
+  return { ...result, bookings: result.bookings.map(normalizeBooking) };
 }
 
 export async function getTripBooking(tripId: string, bookingId: string): Promise<TripBooking> {
-  return apiRequest<TripBooking>(`${bookingsBase(tripId)}/${encodeURIComponent(bookingId)}`);
+  const booking = await apiRequest<TripBooking>(
+    `${bookingsBase(tripId)}/${encodeURIComponent(bookingId)}`,
+  );
+  return normalizeBooking(booking);
 }
 
 export async function createTripBooking(
@@ -42,15 +47,17 @@ export async function createTripBooking(
     startDate: string;
     endDate?: string;
     location?: string;
+    place?: import('@/types/place').TaveloPlace | null;
     route?: string;
     bookingReference?: string;
     notes?: string;
   },
 ): Promise<TripBooking> {
-  return apiRequest<TripBooking>(bookingsBase(tripId), {
+  const booking = await apiRequest<TripBooking>(bookingsBase(tripId), {
     method: 'POST',
     body: JSON.stringify(body),
   });
+  return normalizeBooking(booking);
 }
 
 export async function updateTripBooking(
@@ -63,15 +70,20 @@ export async function updateTripBooking(
     startDate: string;
     endDate: string;
     location: string;
+    place: import('@/types/place').TaveloPlace | null;
     route: string;
     bookingReference: string;
     notes: string;
   }>,
 ): Promise<TripBooking> {
-  return apiRequest<TripBooking>(`${bookingsBase(tripId)}/${encodeURIComponent(bookingId)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  });
+  const booking = await apiRequest<TripBooking>(
+    `${bookingsBase(tripId)}/${encodeURIComponent(bookingId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    },
+  );
+  return normalizeBooking(booking);
 }
 
 export async function deleteTripBooking(tripId: string, bookingId: string): Promise<void> {
@@ -121,7 +133,7 @@ export async function uploadBookingAttachment(input: {
     }),
   });
   input.onProgress?.(1);
-  return booking;
+  return normalizeBooking(booking);
 }
 
 export async function deleteBookingAttachment(
@@ -129,10 +141,11 @@ export async function deleteBookingAttachment(
   bookingId: string,
   attachmentId: string,
 ): Promise<TripBooking> {
-  return apiRequest<TripBooking>(
+  const booking = await apiRequest<TripBooking>(
     `${bookingsBase(tripId)}/${encodeURIComponent(bookingId)}/attachments/${encodeURIComponent(attachmentId)}`,
     { method: 'DELETE' },
   );
+  return normalizeBooking(booking);
 }
 
 export type BookingPickedAttachment = {

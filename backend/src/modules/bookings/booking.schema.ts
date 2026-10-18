@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { nullableTaveloPlaceSchema } from '../places/place.schema';
 import { BOOKING_CATEGORIES } from './booking.model';
 
 const dateOnly = z
@@ -15,6 +16,7 @@ const bookingFieldsSchema = z.object({
   startDate: dateOnly,
   endDate: dateOnly.optional(),
   location: z.string().trim().max(300).optional().default(''),
+  place: nullableTaveloPlaceSchema.optional(),
   route: z.string().trim().max(300).optional().default(''),
   bookingReference: z.string().trim().max(120).optional().default(''),
   notes: z.string().trim().max(4000).optional().default(''),

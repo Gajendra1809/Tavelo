@@ -14,6 +14,9 @@ import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
+import { LocationField } from '@/components/LocationField';
+import { DirectionsLink } from '@/features/location/components/DirectionsLink';
+import { resolvePlace } from '@/features/location/placeHelpers';
 import { TimeField } from '@/components/TimeField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
@@ -46,6 +49,7 @@ type Props = {
 const emptyForm = (date: string): ActivityFormValues => ({
   title: '',
   location: '',
+  place: null,
   date,
   startTime: '',
   endTime: '',
@@ -138,6 +142,7 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
     setFormValues({
       title: activity.title,
       location: activity.location ?? '',
+      place: activity.place ?? null,
       date: activity.date,
       startTime: activity.startTime ?? '',
       endTime: activity.endTime ?? '',
@@ -206,6 +211,7 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
     const payload = {
       title: formValues.title.trim(),
       location: formValues.location.trim() ? formValues.location.trim() : null,
+      place: formValues.place,
       date: formValues.date,
       startTime: normalizeOptionalTime(formValues.startTime),
       endTime: normalizeOptionalTime(formValues.endTime),
@@ -290,13 +296,18 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
         />
       ) : null}
       {!loading && !error
-        ? activities.map((activity) => (
+        ? activities.map((activity) => {
+            const mapsPlace = resolvePlace(activity.place, activity.location);
+            return (
             <View key={activity.id} style={styles.activityRow}>
               <View style={styles.rail} />
               <View style={styles.activityCopy}>
                 <Text style={styles.activityTime}>{formatActivityTime(activity.startTime, activity.endTime)}</Text>
                 <Text style={styles.activityTitle}>{activity.title}</Text>
-                {activity.location ? <Text style={styles.activityMeta}>{activity.location}</Text> : null}
+                {activity.location ? (
+                  <Text style={styles.activityMeta}>{activity.location}</Text>
+                ) : null}
+                {mapsPlace ? <DirectionsLink place={mapsPlace} /> : null}
                 {activity.notes ? <Text style={styles.activityNotes}>{activity.notes}</Text> : null}
                 <View style={styles.activityActions}>
                   <Pressable accessibilityRole="button" onPress={() => openEdit(activity)} style={styles.textAction}>
@@ -312,7 +323,8 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
                 </View>
               </View>
             </View>
-          ))
+          );
+          })
         : null}
 
       <BottomFormSheet
@@ -330,11 +342,17 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
                   error={formErrors.title}
                   placeholder="Fort walk"
                 />
-                <FormField
+                <LocationField
                   label="Location"
-                  value={formValues.location}
-                  onChangeText={(value) => setFormValues((current) => ({ ...current, location: value }))}
-                  placeholder="Galle Fort"
+                  place={formValues.place}
+                  onPlaceChange={(place) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      place,
+                      location: place?.name ?? '',
+                    }))
+                  }
+                  placeholder="Search or enter a place"
                 />
                 <DateField
                   label="Date"

@@ -14,6 +14,7 @@ import {
   type TripFormErrors,
   type TripFormValues,
 } from './validateTripForm';
+import type { TaveloPlace } from '@/types/place';
 import { TripFormFields } from './TripFormFields';
 
 export function CreateTripScreen() {
@@ -21,6 +22,7 @@ export function CreateTripScreen() {
   const allowLeave = useRef(false);
   const savingRef = useRef(false);
   const [values, setValues] = useState<TripFormValues>(emptyTripForm);
+  const [destinationPlace, setDestinationPlace] = useState<TaveloPlace | null>(null);
   const [errors, setErrors] = useState<TripFormErrors>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export function CreateTripScreen() {
       const trip = await createTrip({
         name: values.name.trim(),
         destination: values.destination.trim(),
+        destinationPlace,
         startDate: values.startDate,
         endDate: values.endDate,
         description: values.description.trim(),
@@ -95,7 +98,13 @@ export function CreateTripScreen() {
         />
       }
     >
-      <TripFormFields values={values} errors={errors} onChange={update} />
+      <TripFormFields
+        values={values}
+        errors={errors}
+        destinationPlace={destinationPlace}
+        onChange={update}
+        onDestinationPlaceChange={setDestinationPlace}
+      />
       {saveError ? <ErrorState title="Could not save" message={saveError} /> : null}
       <ConfirmDialog
         visible={confirmLeave}

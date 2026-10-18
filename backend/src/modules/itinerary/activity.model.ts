@@ -1,10 +1,12 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import { placeMongooseSchema } from '../places/place.model';
 
 const activitySchema = new Schema(
   {
     tripId: { type: Schema.Types.ObjectId, ref: 'Trip', required: true, index: true },
     title: { type: String, required: true, trim: true, maxlength: 120 },
     location: { type: String, default: null, trim: true, maxlength: 200 },
+    place: { type: placeMongooseSchema, default: null },
     date: { type: Date, required: true },
     startTime: { type: String, default: null, maxlength: 5 },
     endTime: { type: String, default: null, maxlength: 5 },

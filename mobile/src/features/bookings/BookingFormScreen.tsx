@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
+import { LocationField } from '@/components/LocationField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
@@ -22,6 +23,7 @@ import {
   uploadBookingAttachment,
 } from '@/services/bookingService';
 import { BOOKING_CATEGORIES, type BookingCategory } from '@/types/booking';
+import type { TaveloPlace } from '@/types/place';
 import { colors, spacing, typography } from '@/theme';
 
 type Props = {
@@ -38,6 +40,7 @@ export function BookingFormScreen({ tripId, bookingId }: Props) {
   const [startDate, setStartDate] = useState(trip?.startDate ?? todayDateInput());
   const [endDate, setEndDate] = useState('');
   const [location, setLocation] = useState('');
+  const [locationPlace, setLocationPlace] = useState<TaveloPlace | null>(null);
   const [route, setRoute] = useState('');
   const [bookingReference, setBookingReference] = useState('');
   const [notes, setNotes] = useState('');
@@ -65,6 +68,7 @@ export function BookingFormScreen({ tripId, bookingId }: Props) {
         setStartDate(booking.startDate);
         setEndDate(booking.endDate ?? '');
         setLocation(booking.location);
+        setLocationPlace(booking.place ?? null);
         setRoute(booking.route);
         setBookingReference(booking.bookingReference);
         setNotes(booking.notes);
@@ -78,6 +82,20 @@ export function BookingFormScreen({ tripId, bookingId }: Props) {
 
   const showRoute = category === 'train' || category === 'flight' || category === 'bus' || category === 'cab';
   const showLocation = category === 'hotel' || category === 'activity' || category === 'other';
+
+  function selectCategory(value: BookingCategory) {
+    setCategory(value);
+    const usesLocation = value === 'hotel' || value === 'activity' || value === 'other';
+    const usesRoute =
+      value === 'train' || value === 'flight' || value === 'bus' || value === 'cab';
+    if (!usesLocation) {
+      setLocation('');
+      setLocationPlace(null);
+    }
+    if (!usesRoute) {
+      setRoute('');
+    }
+  }
 
   async function pickFile() {
     try {
@@ -113,6 +131,7 @@ export function BookingFormScreen({ tripId, bookingId }: Props) {
         startDate,
         endDate: endDate.trim() || undefined,
         location: showLocation ? location.trim() : '',
+        place: showLocation ? locationPlace : null,
         route: showRoute ? route.trim() : '',
         bookingReference: bookingReference.trim(),
         notes: notes.trim(),
@@ -167,7 +186,7 @@ export function BookingFormScreen({ tripId, bookingId }: Props) {
             <SecondaryButton
               key={value}
               label={categoryLabel[value]}
-              onPress={() => setCategory(value)}
+              onPress={() => selectCategory(value)}
               style={category === value ? styles.categoryActive : undefined}
             />
           ))}
@@ -190,7 +209,15 @@ export function BookingFormScreen({ tripId, bookingId }: Props) {
           allowClear
         />
         {showLocation ? (
-          <FormField label="Location" value={location} onChangeText={setLocation} placeholder="City or address" />
+          <LocationField
+            label="Location"
+            place={locationPlace}
+            onPlaceChange={(place) => {
+              setLocationPlace(place);
+              setLocation(place?.name ?? '');
+            }}
+            placeholder="Hotel, venue, or address"
+          />
         ) : null}
         {showRoute ? (
           <FormField label="Route" value={route} onChangeText={setRoute} placeholder="Bhopal → Indore" />

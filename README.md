@@ -84,6 +84,7 @@ npm test
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the app, API, and database fit together (includes [client data cache](docs/ARCHITECTURE.md#client-data-cache-mobile), trips, expenses, memories, storage)
+- [docs/LOCATION.md](docs/LOCATION.md) — structured places, Nominatim search proxy, and Google Maps links
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — commands, env vars, Supabase setup, cache verification, and troubleshooting
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — deploy API (Render), Atlas, Supabase, and Android tester APK (EAS)
 - [mobile/src/lib/cache/README.md](mobile/src/lib/cache/README.md) — cache modules, hooks, seeding, and invalidation

@@ -28,6 +28,8 @@ import { deleteTrip } from '@/services/tripService';
 import type { SentInvitation } from '@/types/invitation';
 import type { Trip } from '@/types/trip';
 import { TripItinerarySection } from '@/features/trips/TripItinerarySection';
+import { LocationInlineSummary } from '@/features/location/components/LocationInlineSummary';
+import { resolvePlace } from '@/features/location/placeHelpers';
 import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 
 const DETAIL_TABS = [
@@ -174,6 +176,10 @@ export function TripDetailScreen() {
       />
       <View style={styles.card}>
         <Text style={styles.destination}>{trip.destination}</Text>
+        <LocationInlineSummary
+          hideName
+          place={resolvePlace(trip.destinationPlace ?? null, trip.destination)}
+        />
         <Text style={styles.name}>{title}</Text>
         <Text style={styles.dates}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
         {duration ? (

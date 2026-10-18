@@ -73,7 +73,7 @@ Conventions for new features:
 | `src/config/`     | Environment, database, and CORS.                              |
 | `src/middleware/` | Logging, 404s, and errors.                                    |
 | `src/routes/`     | Mount feature routers under the API prefix.                   |
-| `src/modules/`    | Feature modules (auth, trips, expenses, memories, storage, health, …). |
+| `src/modules/`    | Feature modules (auth, trips, expenses, memories, storage, health, places, …). |
 | `src/utils/`      | Response helpers, errors, validation, and secret redaction.   |
 
 Business decisions sit in modules and services. Route handlers parse the request, call that code, and send the response.
@@ -104,6 +104,10 @@ Full examples: [`backend/.env.example`](../backend/.env.example). Setup steps: [
 `EXPO_PUBLIC_API_URL` is the mobile base URL, origin only, without `/api/v1`. The health path lives in `mobile/src/constants/api.ts`. If `API_PREFIX` changes, that constant must change with it.
 
 `APP_ENV=production` is read by `mobile/app.config.ts` on the development machine. It is not an `EXPO_PUBLIC_` variable, so it is not shipped as app configuration data. When it is `production`, the Android cleartext plugin is omitted. Local builds otherwise set `android:usesCleartextTraffic` so a development build can call `http://` on the LAN. Expo Go already allows that HTTP traffic; the plugin matters for a later prebuild.
+
+## Locations and maps
+
+Trips, itinerary activities, and bookings store an optional structured **place** alongside legacy text (`destination` / `location`). Mobile uses a shared location picker; the API exposes `GET /places/search` (Nominatim proxy, authenticated). Directions use Google Maps URLs on the device—no Maps API key. Details: [LOCATION.md](./LOCATION.md).
 
 ## API responses
 

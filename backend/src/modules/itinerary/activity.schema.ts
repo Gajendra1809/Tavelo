@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { nullableTaveloPlaceSchema } from '../places/place.schema';
 
 const dateOnly = z
   .string()
@@ -33,6 +34,7 @@ export const createActivitySchema = z
     startTime: optionalClockTime,
     endTime: optionalClockTime,
     notes: z.string().trim().max(1000, 'Use 1000 characters or fewer.').optional().default(''),
+    place: nullableTaveloPlaceSchema.optional(),
   })
   .strip()
   .refine((activity) => isTimeRangeValid(activity.startTime ?? null, activity.endTime ?? null), {
@@ -59,6 +61,7 @@ export const updateActivitySchema = z
     startTime: optionalClockTime,
     endTime: optionalClockTime,
     notes: z.string().trim().max(1000, 'Use 1000 characters or fewer.').optional(),
+    place: nullableTaveloPlaceSchema.optional(),
   })
   .strip()
   .refine((activity) => Object.values(activity).some((value) => value !== undefined), {

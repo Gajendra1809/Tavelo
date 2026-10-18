@@ -44,6 +44,7 @@ Set these values in `backend/.env`:
 | `MEMORY_IMAGE_MAX_BYTES` | `15728640` (15 MB)                                                        | No.                                             |
 | `MEMORY_VIDEO_MAX_BYTES` | `104857600` (100 MB)                                                      | No.                                             |
 | `BOOKING_ATTACHMENT_MAX_BYTES` | `15728640` (15 MB)                                                  | No.                                             |
+| `PLACE_SEARCH_USER_AGENT` | `Tavelo/1.0 (contact: you@example.com)`                              | No. Sent to Nominatim for place search.         |
 
 Replace `USER`, `PASSWORD`, and `CLUSTER` with the Atlas database user and host. Do not put this file in Git.
 

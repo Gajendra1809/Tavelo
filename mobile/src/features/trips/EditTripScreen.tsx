@@ -22,6 +22,7 @@ import {
 import { resolveLocalByteSize } from '@/services/storageUpload';
 import { updateTrip } from '@/services/tripService';
 import { colors, radius, spacing, typography } from '@/theme';
+import type { TaveloPlace } from '@/types/place';
 import { TripFormFields } from './TripFormFields';
 import {
   emptyTripForm,
@@ -41,6 +42,8 @@ export function EditTripScreen() {
   const hydratedRef = useRef(false);
   const [initial, setInitial] = useState<TripFormValues>(emptyTripForm);
   const [values, setValues] = useState<TripFormValues>(emptyTripForm);
+  const [destinationPlace, setDestinationPlace] = useState<TaveloPlace | null>(null);
+  const [initialDestinationPlace, setInitialDestinationPlace] = useState<TaveloPlace | null>(null);
   const [errors, setErrors] = useState<TripFormErrors>({});
   const { trip, loading, error: loadError, errorStatus: loadStatus, refresh } = useTripFromCache(id);
   const [forbidden, setForbidden] = useState(false);
@@ -82,6 +85,8 @@ export function EditTripScreen() {
     };
     setInitial(next);
     setValues(next);
+    setDestinationPlace(trip.destinationPlace ?? null);
+    setInitialDestinationPlace(trip.destinationPlace ?? null);
     setCoverUrl(trip.coverImageUrl);
     setCoverLabel(trip.destination);
     hydratedRef.current = true;
@@ -90,14 +95,31 @@ export function EditTripScreen() {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
-      if (allowLeave.current || loading || forbidden || !isTripFormChanged(values, initial) || saving) {
+      const placeChanged =
+        JSON.stringify(destinationPlace) !== JSON.stringify(initialDestinationPlace);
+      if (
+        allowLeave.current ||
+        loading ||
+        forbidden ||
+        (!isTripFormChanged(values, initial) && !placeChanged) ||
+        saving
+      ) {
         return;
       }
       event.preventDefault();
       setConfirmLeave(true);
     });
     return unsubscribe;
-  }, [forbidden, initial, loading, navigation, saving, values]);
+  }, [
+    destinationPlace,
+    forbidden,
+    initial,
+    initialDestinationPlace,
+    loading,
+    navigation,
+    saving,
+    values,
+  ]);
 
   function update(key: keyof TripFormValues, value: string) {
     setValues((current) => {
@@ -186,6 +208,7 @@ export function EditTripScreen() {
       await updateTrip(id, {
         name: values.name.trim(),
         destination: values.destination.trim(),
+        destinationPlace,
         startDate: values.startDate,
         endDate: values.endDate,
         description: values.description.trim(),
@@ -268,7 +291,13 @@ export function EditTripScreen() {
         />
         {coverError ? <Text style={styles.coverError}>{coverError}</Text> : null}
       </View>
-      <TripFormFields values={values} errors={errors} onChange={update} />
+      <TripFormFields
+        values={values}
+        errors={errors}
+        destinationPlace={destinationPlace}
+        onChange={update}
+        onDestinationPlaceChange={setDestinationPlace}
+      />
       {saveError ? <ErrorState title="Could not save" message={saveError} /> : null}
       <ConfirmDialog
         visible={confirmLeave}
