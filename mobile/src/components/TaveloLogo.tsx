@@ -25,7 +25,7 @@ function TaveloLogoText({ height }: { height: number }) {
   );
 }
 
-export function TaveloLogo({ height = 36, style, imageStyle, variant = 'image' }: TaveloLogoProps) {
+export function TaveloLogo({ height = 44, style, imageStyle, variant = 'image' }: TaveloLogoProps) {
   if (variant === 'text') {
     return (
       <View style={style}>

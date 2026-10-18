@@ -7,7 +7,7 @@ export function BootScreen() {
   return (
     <View style={styles.screen} accessibilityRole="progressbar" accessibilityLabel="Checking your session">
       <Atmosphere />
-      <TaveloLogo height={48} />
+      <TaveloLogo height={60} />
       <ActivityIndicator color={colors.primary} />
     </View>
   );

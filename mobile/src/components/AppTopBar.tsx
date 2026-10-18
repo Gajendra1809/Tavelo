@@ -7,7 +7,7 @@ import { spacing } from '@/theme';
 export function AppTopBar() {
   return (
     <View style={styles.row}>
-      <TaveloLogo height={34} />
+      <TaveloLogo height={44} />
       <NotificationBell />
     </View>
   );

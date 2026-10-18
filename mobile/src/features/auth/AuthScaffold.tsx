@@ -44,7 +44,7 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
           </View>
           <View style={styles.sheet}>
             <View style={styles.copy}>
-              <TaveloLogo height={40} />
+              <TaveloLogo height={52} />
               <Text style={styles.title}>{title}</Text>
               <Text style={styles.subtitle}>{subtitle}</Text>
             </View>
