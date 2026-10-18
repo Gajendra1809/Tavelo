@@ -1,5 +1,7 @@
 # Development
 
+For **production deploy and sharing an Android APK with testers**, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 Commands assume PowerShell and the repository root unless a step says otherwise. Node.js must be **22.13 or newer**. `node -v` on an older install will not run this Expo SDK.
 
 ## Install dependencies

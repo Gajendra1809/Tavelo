@@ -1,0 +1,24 @@
+# Render Blueprint — Tavelo API (monorepo: backend/)
+# Deploy: Render Dashboard → New → Blueprint → connect repo.
+# Set secret env vars (MONGODB_URI, JWT_ACCESS_SECRET, Supabase keys) in the dashboard after sync.
+
+services:
+  - type: web
+    name: tavelo-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PREFIX
+        value: /api/v1
+      - key: STORAGE_ENABLED
+        value: false
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
