@@ -1,7 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { DirectionsLink } from '@/features/location/components/DirectionsLink';
-import { LocationStatusBadge } from '@/features/location/components/LocationStatusBadge';
-import { placePrimaryLine, placeSecondaryLine } from '@/features/location/placeDisplay';
+import { canOpenMaps, placePrimaryLine, placeSecondaryLine } from '@/features/location/placeDisplay';
 import type { TaveloPlace } from '@/types/place';
 import { colors, spacing, typography } from '@/theme';
 
@@ -22,6 +21,7 @@ export function LocationInlineSummary({
   }
 
   const showName = !hideName;
+  const showMaps = canOpenMaps(place);
 
   return (
     <View style={styles.wrap}>
@@ -33,8 +33,9 @@ export function LocationInlineSummary({
           {placeSecondaryLine(place)}
         </Text>
       ) : null}
-      {!compact ? <LocationStatusBadge place={place} /> : null}
-      <DirectionsLink place={place} label={compact ? 'Directions' : 'Open in Maps'} />
+      {showMaps ? (
+        <DirectionsLink place={place} label={compact ? 'Directions' : 'Open in Maps'} />
+      ) : null}
     </View>
   );
 }

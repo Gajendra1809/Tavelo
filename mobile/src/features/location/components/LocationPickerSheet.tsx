@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomFormSheet } from '@/components/BottomFormSheet';
 import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SearchField } from '@/components/SearchField';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { LocationMapPreview } from '@/features/location/components/LocationMapPreview';
-import { LocationStatusBadge } from '@/features/location/components/LocationStatusBadge';
 import { createManualPlace, searchHitToPlace } from '@/features/location/placeHelpers';
 import { placePrimaryLine, placeSecondaryLine } from '@/features/location/placeDisplay';
 import { ApiError } from '@/lib/apiClient';
@@ -20,24 +19,94 @@ type LocationPickerSheetProps = {
   visible: boolean;
   onClose: () => void;
   onConfirm: (place: TaveloPlace | null) => void;
+  onPresented?: () => void;
   initialPlace?: TaveloPlace | null;
   allowClear?: boolean;
   /** Bump when opening so form state resets without an effect. */
   sessionKey: number;
 };
 
-type BodyProps = Omit<LocationPickerSheetProps, 'visible' | 'sessionKey'>;
+type BodyProps = Omit<LocationPickerSheetProps, 'visible' | 'sessionKey'> & {
+  sheetScrollRef: RefObject<ScrollView | null>;
+  onStepChange: (keyboardScrollToEnd: boolean) => void;
+};
 
 export function LocationPickerSheet({
   visible,
   onClose,
+  onPresented,
   sessionKey,
   ...bodyProps
 }: LocationPickerSheetProps) {
+  const [contentReady, setContentReady] = useState(false);
+  const [keyboardScrollToEnd, setKeyboardScrollToEnd] = useState(false);
+  const sheetScrollRef = useRef<ScrollView>(null);
+  const presentedRef = useRef(false);
+  const onPresentedRef = useRef(onPresented);
+
+  useEffect(() => {
+    onPresentedRef.current = onPresented;
+  }, [onPresented]);
+
+  function handleClose() {
+    setContentReady(false);
+    setKeyboardScrollToEnd(false);
+    presentedRef.current = false;
+    onClose();
+  }
+
+  function markPresented() {
+    if (presentedRef.current) {
+      return;
+    }
+    presentedRef.current = true;
+    setContentReady(true);
+    onPresentedRef.current?.();
+  }
+
+  function handleShow() {
+    markPresented();
+  }
+
+  useEffect(() => {
+    if (!visible) {
+      presentedRef.current = false;
+      return;
+    }
+    presentedRef.current = false;
+    const fallback = setTimeout(() => {
+      if (presentedRef.current) {
+        return;
+      }
+      presentedRef.current = true;
+      setContentReady(true);
+      onPresentedRef.current?.();
+    }, 500);
+    return () => clearTimeout(fallback);
+  }, [visible, sessionKey]);
+
   return (
-    <BottomFormSheet visible={visible} onClose={onClose} title="Choose location">
-      {visible ? (
-        <LocationPickerBody key={sessionKey} onClose={onClose} {...bodyProps} />
+    <BottomFormSheet
+      visible={visible}
+      onClose={handleClose}
+      title="Choose location"
+      onShow={handleShow}
+      keyboardScrollToEnd={keyboardScrollToEnd}
+      scrollRef={sheetScrollRef}
+    >
+      {visible && contentReady ? (
+        <LocationPickerBody
+          key={sessionKey}
+          onClose={handleClose}
+          sheetScrollRef={sheetScrollRef}
+          onStepChange={setKeyboardScrollToEnd}
+          {...bodyProps}
+        />
+      ) : visible ? (
+        <View style={styles.boot}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={styles.bootText}>Loading search…</Text>
+        </View>
       ) : null}
     </BottomFormSheet>
   );
@@ -48,9 +117,21 @@ function LocationPickerBody({
   onConfirm,
   initialPlace,
   allowClear = false,
+  sheetScrollRef,
+  onStepChange,
 }: BodyProps) {
   const [step, setStep] = useState<Step>('search');
-  const [query, setQuery] = useState(initialPlace?.name ?? '');
+
+  useEffect(() => {
+    onStepChange(step === 'manual');
+  }, [onStepChange, step]);
+
+  function scrollSheetToEnd() {
+    requestAnimationFrame(() => {
+      sheetScrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }
+  const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlaceSearchHit[]>([]);
   const [lastFetchedQuery, setLastFetchedQuery] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -136,12 +217,22 @@ function LocationPickerBody({
     <>
       {step === 'search' ? (
         <View style={styles.stack}>
+          {initialPlace ? (
+            <View style={styles.currentBanner}>
+              <Text style={styles.currentLabel}>Current location</Text>
+              <Text style={styles.currentValue}>{placePrimaryLine(initialPlace)}</Text>
+            </View>
+          ) : null}
           <SearchField
             value={query}
             onChangeText={setQuery}
             placeholder="Search places or destinations"
             accessibilityLabel="Search places or destinations"
+            autoFocus
           />
+          {!searchActive && !trimmedQuery ? (
+            <Text style={styles.hint}>Type at least 2 characters to search.</Text>
+          ) : null}
           {showLoading ? (
             <View style={styles.centerRow}>
               <ActivityIndicator color={colors.primary} />
@@ -187,7 +278,6 @@ function LocationPickerBody({
 
       {step === 'confirm' && pending ? (
         <View style={styles.stack}>
-          <LocationStatusBadge place={pending} />
           <Text style={styles.confirmName}>{placePrimaryLine(pending)}</Text>
           {placeSecondaryLine(pending) ? (
             <Text style={styles.confirmAddress}>{placeSecondaryLine(pending)}</Text>
@@ -201,14 +291,16 @@ function LocationPickerBody({
       {step === 'manual' ? (
         <View style={styles.stack}>
           <Text style={styles.manualNote}>
-            Manual locations are saved without verified coordinates. You can still open directions using
-            the name or address.
+            Manual locations are saved as text only. Pick a place from search if you want a map preview or
+            Open in Maps on the trip.
           </Text>
           <FormField
             label="Place name"
             value={manualName}
             onChangeText={setManualName}
             placeholder="e.g. Cousin’s farmhouse"
+            autoFocus
+            onFocus={scrollSheetToEnd}
           />
           <FormField
             label="Address (optional)"
@@ -216,6 +308,7 @@ function LocationPickerBody({
             onChangeText={setManualAddress}
             placeholder="Street, city, or notes"
             multiline
+            onFocus={scrollSheetToEnd}
           />
           <PrimaryButton label="Use this location" onPress={confirmManual} disabled={!manualName.trim()} />
           <SecondaryButton label="Back to search" onPress={() => setStep('search')} />
@@ -226,9 +319,36 @@ function LocationPickerBody({
 }
 
 const styles = StyleSheet.create({
+  boot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xl,
+  },
+  bootText: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.muted,
+  },
   stack: {
     gap: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  currentBanner: {
+    backgroundColor: colors.seafoam,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  currentLabel: {
+    ...typography.label,
+    fontSize: 11,
+    color: colors.muted,
+  },
+  currentValue: {
+    ...typography.body,
+    color: colors.ink,
+    fontWeight: '600',
   },
   centerRow: {
     flexDirection: 'row',

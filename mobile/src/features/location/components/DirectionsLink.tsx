@@ -11,22 +11,22 @@ type DirectionsLinkProps = {
 };
 
 export function DirectionsLink({ place, label = 'Directions' }: DirectionsLinkProps) {
-  const enabled = canOpenMaps(place);
+  if (!canOpenMaps(place)) {
+    return null;
+  }
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: !enabled }}
-      disabled={!enabled}
       onPress={() => void openMapsDirections(place)}
-      style={({ pressed }) => [styles.row, pressed && enabled ? styles.pressed : null, !enabled ? styles.disabled : null]}
+      style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
     >
       <SymbolView
         name={{ android: 'directions', web: 'directions' }}
         size={18}
-        tintColor={enabled ? colors.primary : colors.muted}
+        tintColor={colors.primary}
       />
-      <Text style={[styles.label, !enabled ? styles.labelDisabled : null]}>{label}</Text>
+      <Text style={styles.label}>{label}</Text>
     </Pressable>
   );
 }
@@ -42,14 +42,8 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.85,
   },
-  disabled: {
-    opacity: 0.55,
-  },
   label: {
     ...typography.label,
     color: colors.primary,
-  },
-  labelDisabled: {
-    color: colors.muted,
   },
 });

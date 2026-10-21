@@ -1,6 +1,7 @@
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocationPickerOptional } from '@/features/location/LocationPickerHost';
 import { LocationPickerSheet } from '@/features/location/components/LocationPickerSheet';
 import { placePrimaryLine, placeSecondaryLine } from '@/features/location/placeDisplay';
 import type { TaveloPlace } from '@/types/place';
@@ -21,8 +22,43 @@ export function LocationField({
   error,
   placeholder = 'Search places or destinations',
 }: LocationFieldProps) {
-  const [open, setOpen] = useState(false);
-  const [sessionKey, setSessionKey] = useState(0);
+  const pickerHost = useLocationPickerOptional();
+  const [fallbackOpen, setFallbackOpen] = useState(false);
+  const [fallbackSessionKey, setFallbackSessionKey] = useState(0);
+  const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    if (!opening) {
+      return;
+    }
+    const safety = setTimeout(() => setOpening(false), 12_000);
+    return () => clearTimeout(safety);
+  }, [opening]);
+
+  function openPicker() {
+    if (opening) {
+      return;
+    }
+    setOpening(true);
+    const finish = () => setOpening(false);
+
+    if (pickerHost) {
+      pickerHost.openLocationPicker({
+        initialPlace: place,
+        allowClear: Boolean(place),
+        onPresented: finish,
+        onConfirm: (next) => {
+          onPlaceChange(next);
+          finish();
+        },
+        onDismiss: finish,
+      });
+      return;
+    }
+
+    setFallbackSessionKey((key) => key + 1);
+    setFallbackOpen(true);
+  }
 
   return (
     <View style={styles.field}>
@@ -30,11 +66,10 @@ export function LocationField({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
-        onPress={() => {
-          setSessionKey((key) => key + 1);
-          setOpen(true);
-        }}
-        style={[styles.trigger, error ? styles.invalid : null]}
+        accessibilityState={{ busy: opening }}
+        disabled={opening}
+        onPress={openPicker}
+        style={[styles.trigger, error ? styles.invalid : null, opening ? styles.opening : null]}
       >
         <SymbolView
           name={{ android: 'location_on', web: 'location_on' }}
@@ -43,7 +78,12 @@ export function LocationField({
           style={styles.icon}
         />
         <View style={styles.copy}>
-          {place ? (
+          {opening ? (
+            <View style={styles.openingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.openingText}>Opening location picker…</Text>
+            </View>
+          ) : place ? (
             <>
               <Text style={styles.value}>{placePrimaryLine(place)}</Text>
               {placeSecondaryLine(place) ? (
@@ -56,24 +96,33 @@ export function LocationField({
             <Text style={styles.placeholder}>{placeholder}</Text>
           )}
         </View>
-        <SymbolView
-          name={{ android: 'chevron_right', web: 'chevron_right' }}
-          size={18}
-          tintColor={colors.muted}
-        />
+        {opening ? null : (
+          <SymbolView
+            name={{ android: 'chevron_right', web: 'chevron_right' }}
+            size={18}
+            tintColor={colors.muted}
+          />
+        )}
       </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <LocationPickerSheet
-        sessionKey={sessionKey}
-        visible={open}
-        onClose={() => setOpen(false)}
-        allowClear={Boolean(place)}
-        onConfirm={(next) => {
-          onPlaceChange(next);
-          setOpen(false);
-        }}
-        initialPlace={place}
-      />
+      {!pickerHost ? (
+        <LocationPickerSheet
+          sessionKey={fallbackSessionKey}
+          visible={fallbackOpen}
+          onPresented={() => setOpening(false)}
+          onClose={() => {
+            setFallbackOpen(false);
+            setOpening(false);
+          }}
+          allowClear={Boolean(place)}
+          onConfirm={(next) => {
+            onPlaceChange(next);
+            setFallbackOpen(false);
+            setOpening(false);
+          }}
+          initialPlace={place}
+        />
+      ) : null}
     </View>
   );
 }
@@ -98,6 +147,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     minHeight: 52,
   },
+  opening: {
+    borderColor: colors.primary,
+    backgroundColor: colors.seafoam,
+  },
   invalid: {
     borderColor: colors.danger,
   },
@@ -107,6 +160,16 @@ const styles = StyleSheet.create({
   copy: {
     flex: 1,
     gap: 2,
+  },
+  openingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  openingText: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.muted,
   },
   value: {
     ...typography.body,

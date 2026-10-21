@@ -22,9 +22,7 @@ export function placeMapsQuery(place: TaveloPlace): string {
   return place.name.trim();
 }
 
+/** Maps/directions are only offered for places picked from search (provider), not manual text. */
 export function canOpenMaps(place: TaveloPlace): boolean {
-  if (hasVerifiedCoordinates(place)) {
-    return true;
-  }
-  return placeMapsQuery(place).length > 0;
+  return place.source === 'provider' && hasVerifiedCoordinates(place);
 }

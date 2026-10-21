@@ -3,6 +3,7 @@ import type { PlaceSearchResult } from './place.schema';
 
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const MIN_INTERVAL_MS = 1100;
+const UPSTREAM_TIMEOUT_MS = 12_000;
 
 let lastRequestAt = 0;
 
@@ -63,6 +64,7 @@ export async function searchPlacesNominatim(
         'User-Agent': buildUserAgent(),
         Accept: 'application/json',
       },
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
   } catch {
     throw new AppError(502, 'UPSTREAM_ERROR', 'Place search is temporarily unavailable.');

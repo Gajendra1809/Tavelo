@@ -15,6 +15,8 @@ type FormFieldProps = {
   autoComplete?: TextInputProps['autoComplete'];
   textContentType?: TextInputProps['textContentType'];
   trailing?: ReactNode;
+  onFocus?: TextInputProps['onFocus'];
+  autoFocus?: boolean;
 };
 
 export function FormField({
@@ -30,6 +32,8 @@ export function FormField({
   autoComplete,
   textContentType,
   trailing,
+  onFocus,
+  autoFocus = false,
 }: FormFieldProps) {
   return (
     <View style={styles.field}>
@@ -47,6 +51,8 @@ export function FormField({
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
           textContentType={textContentType}
+          onFocus={onFocus}
+          autoFocus={autoFocus}
           style={[styles.input, multiline ? styles.multiline : null]}
         />
         {trailing}

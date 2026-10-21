@@ -98,6 +98,8 @@ import {
   type UpdateBookingInput,
 } from '../bookings/booking.schema';
 import { createTrip, deleteTrip, getTrip, listTrips, updateTrip } from './trip.service';
+import { tripWeatherQuerySchema, type TripWeatherQuery } from '../weather/weather.schema';
+import { getTripWeather } from '../weather/weather.service';
 
 export const tripRouter = Router();
 
@@ -558,6 +560,20 @@ tripRouter.delete(
   asyncHandler(async (req, res) => {
     await deleteTripCover(currentUserId(req), paramId(req.params.id));
     sendSuccess(res, await getTrip(currentUserId(req), paramId(req.params.id)));
+  }),
+);
+
+tripRouter.get(
+  '/:id/weather',
+  validate({ query: tripWeatherQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const query = (req.validated?.query ?? {}) as TripWeatherQuery;
+    sendSuccess(
+      res,
+      await getTripWeather(currentUserId(req), paramId(req.params.id), {
+        refresh: query.refresh,
+      }),
+    );
   }),
 );
 

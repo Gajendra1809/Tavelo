@@ -7,6 +7,7 @@ type SearchFieldProps = {
   onChangeText: (value: string) => void;
   placeholder?: string;
   accessibilityLabel?: string;
+  autoFocus?: boolean;
 };
 
 export function SearchField({
@@ -14,6 +15,7 @@ export function SearchField({
   onChangeText,
   placeholder = 'Search',
   accessibilityLabel = 'Search',
+  autoFocus = false,
 }: SearchFieldProps) {
   return (
     <View style={styles.row}>
@@ -31,6 +33,7 @@ export function SearchField({
         placeholderTextColor={colors.muted}
         autoCapitalize="none"
         autoCorrect={false}
+        autoFocus={autoFocus}
         clearButtonMode="while-editing"
         style={styles.input}
       />

@@ -30,6 +30,11 @@ import type { Trip } from '@/types/trip';
 import { TripItinerarySection } from '@/features/trips/TripItinerarySection';
 import { LocationInlineSummary } from '@/features/location/components/LocationInlineSummary';
 import { resolvePlace } from '@/features/location/placeHelpers';
+import {
+  TripWeatherHeaderBadge,
+  TripWeatherSummaryRow,
+} from '@/features/weather/TripWeatherInCard';
+import { useTripWeather } from '@/features/weather/useTripWeather';
 import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 
 const DETAIL_TABS = [
@@ -57,6 +62,10 @@ export function TripDetailScreen() {
     { kind: 'cancel'; invitation: SentInvitation } | { kind: 'remove'; userId: string; name: string } | null
   >(null);
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const destinationPlaceForWeather = trip
+    ? resolvePlace(trip.destinationPlace ?? null, trip.destination)
+    : null;
+  const tripWeather = useTripWeather(trip?.id ?? '', destinationPlaceForWeather);
 
   const loadInvites = useCallback(async () => {
     if (!trip || !user || trip.creatorId !== user.id) {
@@ -78,7 +87,10 @@ export function TripDetailScreen() {
   );
 
   useEffect(() => {
-    void loadInvites();
+    const handle = setTimeout(() => {
+      void loadInvites();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadInvites]);
 
   async function confirmRemoval() {
@@ -164,6 +176,7 @@ export function TripDetailScreen() {
   const canManage = Boolean(user && trip.creatorId && user.id === trip.creatorId);
   const duration = formatTripLength(trip.startDate, trip.endDate);
   const members = trip.members ?? [];
+  const destinationPlace = destinationPlaceForWeather!;
 
   return (
     <Screen edges={['left', 'right', 'bottom']}>
@@ -175,11 +188,13 @@ export function TripDetailScreen() {
         textStyle={styles.coverText}
       />
       <View style={styles.card}>
-        <Text style={styles.destination}>{trip.destination}</Text>
-        <LocationInlineSummary
-          hideName
-          place={resolvePlace(trip.destinationPlace ?? null, trip.destination)}
-        />
+        <View style={styles.destinationRow}>
+          <Text style={styles.destination} numberOfLines={2}>
+            {trip.destination}
+          </Text>
+          <TripWeatherHeaderBadge weather={tripWeather} />
+        </View>
+        <LocationInlineSummary hideName place={destinationPlace} />
         <Text style={styles.name}>{title}</Text>
         <Text style={styles.dates}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
         {duration ? (
@@ -187,6 +202,11 @@ export function TripDetailScreen() {
             <Text style={styles.duration}>{duration}</Text>
           </View>
         ) : null}
+        <TripWeatherSummaryRow
+          weather={tripWeather}
+          tripStartDate={trip.startDate}
+          tripEndDate={trip.endDate}
+        />
       </View>
       <SegmentTabs tabs={[...DETAIL_TABS]} active={activeTab} onChange={setActiveTab} />
 
@@ -410,10 +430,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
+  destinationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   destination: {
     ...typography.title,
     fontSize: 32,
     color: colors.ink,
+    flex: 1,
+    flexShrink: 1,
   },
   name: {
     ...typography.cardTitle,

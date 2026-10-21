@@ -109,6 +109,8 @@ Full examples: [`backend/.env.example`](../backend/.env.example). Setup steps: [
 
 Trips, itinerary activities, and bookings store an optional structured **place** alongside legacy text (`destination` / `location`). Mobile uses a shared location picker; the API exposes `GET /places/search` (Nominatim proxy, authenticated). Directions use Google Maps URLs on the device—no Maps API key. Details: [LOCATION.md](./LOCATION.md).
 
+Trip destination weather (Open-Meteo via backend proxy, in-card on Trip Details): [WEATHER.md](./WEATHER.md).
+
 ## API responses
 
 Success:

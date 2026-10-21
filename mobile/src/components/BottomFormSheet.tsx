@@ -1,8 +1,7 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { useEffect, useRef } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useBottomSafePadding } from '@/hooks/useBottomSafePadding';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type BottomFormSheetProps = {
@@ -20,6 +20,11 @@ type BottomFormSheetProps = {
   title?: string;
   children: ReactNode;
   sheetStyle?: StyleProp<ViewStyle>;
+  onShow?: () => void;
+  /** When the keyboard opens, scroll toward the end (better for lower fields). Default scrolls to top. */
+  keyboardScrollToEnd?: boolean;
+  /** Optional ref to the inner ScrollView (e.g. to scroll on field focus). */
+  scrollRef?: RefObject<ScrollView | null>;
 };
 
 /** Bottom sheet with scroll + keyboard insets (expenses, itinerary, profile edit). */
@@ -29,8 +34,31 @@ export function BottomFormSheet({
   title,
   children,
   sheetStyle,
+  onShow,
+  keyboardScrollToEnd = false,
+  scrollRef: scrollRefProp,
 }: BottomFormSheetProps) {
   const modalBottomPad = useBottomSafePadding(spacing.lg);
+  const keyboardInset = useKeyboardInset();
+  const scrollRefLocal = useRef<ScrollView>(null);
+  const scrollRef = scrollRefProp ?? scrollRefLocal;
+
+  useEffect(() => {
+    if (!visible || keyboardInset <= 0) {
+      return;
+    }
+    const handle = requestAnimationFrame(() => {
+      if (keyboardScrollToEnd) {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      } else {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [keyboardInset, keyboardScrollToEnd, scrollRef, visible]);
+
+  const sheetLift = keyboardInset > 0 ? keyboardInset : 0;
+  const scrollBottomPad = modalBottomPad + (keyboardInset > 0 ? spacing.md : 0);
 
   return (
     <Modal
@@ -38,12 +66,10 @@ export function BottomFormSheet({
       animationType="slide"
       transparent
       onRequestClose={onClose}
+      onShow={onShow}
       statusBarTranslucent
     >
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.flex}>
         <View style={styles.backdrop}>
           <Pressable
             accessibilityRole="button"
@@ -51,19 +77,27 @@ export function BottomFormSheet({
             style={styles.dismiss}
             onPress={onClose}
           />
-          <View style={[styles.sheet, sheetStyle]}>
+          <View
+            style={[
+              styles.sheet,
+              sheetStyle,
+              sheetLift > 0 ? { marginBottom: sheetLift } : null,
+            ]}
+          >
             <ScrollView
+              ref={scrollRef}
               keyboardShouldPersistTaps="handled"
               automaticallyAdjustKeyboardInsets
+              keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={[styles.scroll, { paddingBottom: modalBottomPad }]}
+              contentContainerStyle={[styles.scroll, { paddingBottom: scrollBottomPad }]}
             >
               {title ? <Text style={styles.title}>{title}</Text> : null}
               {children}
             </ScrollView>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

@@ -26,7 +26,7 @@ export function LocationMapPreview({ place }: LocationMapPreviewProps) {
           size={32}
           tintColor={colors.muted}
         />
-        <Text style={styles.coordsMuted}>Map preview appears after you select a verified place.</Text>
+        <Text style={styles.coordsMuted}>Map preview appears when you pick a place from search.</Text>
       </View>
     );
   }

@@ -83,5 +83,5 @@ export type PlaceSearchResult = {
   latitude: number;
   longitude: number;
   placeId: string;
-  provider: 'nominatim';
+  provider: 'nominatim' | 'photon';
 };

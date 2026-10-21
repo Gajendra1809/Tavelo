@@ -16,6 +16,7 @@ import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
 import { LocationField } from '@/components/LocationField';
 import { DirectionsLink } from '@/features/location/components/DirectionsLink';
+import { canOpenMaps } from '@/features/location/placeDisplay';
 import { resolvePlace } from '@/features/location/placeHelpers';
 import { TimeField } from '@/components/TimeField';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -307,7 +308,9 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
                 {activity.location ? (
                   <Text style={styles.activityMeta}>{activity.location}</Text>
                 ) : null}
-                {mapsPlace ? <DirectionsLink place={mapsPlace} /> : null}
+                {mapsPlace && canOpenMaps(mapsPlace) ? (
+                  <DirectionsLink place={mapsPlace} />
+                ) : null}
                 {activity.notes ? <Text style={styles.activityNotes}>{activity.notes}</Text> : null}
                 <View style={styles.activityActions}>
                   <Pressable accessibilityRole="button" onPress={() => openEdit(activity)} style={styles.textAction}>

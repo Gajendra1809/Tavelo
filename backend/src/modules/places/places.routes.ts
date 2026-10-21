@@ -3,7 +3,7 @@ import { asyncHandler } from '../../middleware/asyncHandler';
 import { requireAuth } from '../../middleware/requireAuth';
 import { sendSuccess } from '../../utils/apiResponse';
 import { validate } from '../../utils/validate';
-import { searchPlacesNominatim } from './nominatim.service';
+import { searchPlacesForApi } from './placeSearch.service';
 import { placeSearchQuerySchema, type PlaceSearchQuery } from './place.schema';
 
 export const placesRouter = Router();
@@ -15,7 +15,7 @@ placesRouter.get(
   validate({ query: placeSearchQuerySchema }),
   asyncHandler(async (req, res) => {
     const query = req.validated?.query as PlaceSearchQuery;
-    const results = await searchPlacesNominatim(query.q, query.limit);
+    const results = await searchPlacesForApi(query.q, query.limit);
     sendSuccess(res, { results, attribution: '© OpenStreetMap contributors' });
   }),
 );

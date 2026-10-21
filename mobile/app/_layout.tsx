@@ -4,14 +4,17 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { BootScreen } from '@/features/auth/BootScreen';
 import { NotificationUnreadSync } from '@/components/NotificationUnreadSync';
+import { LocationPickerProvider } from '@/features/location/LocationPickerHost';
 import { colors } from '@/theme';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="dark" />
-        <RootNavigator />
+        <LocationPickerProvider>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </LocationPickerProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
