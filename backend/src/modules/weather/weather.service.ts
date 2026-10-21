@@ -15,12 +15,12 @@ import {
 } from './weatherEligibility';
 import type { TripWeatherResponse } from './weather.types';
 
-const UNAVAILABLE_MESSAGES: Record<string, string> = {
+const UNAVAILABLE_MESSAGES = {
   manual_location:
     'Weather is available only for destinations picked from search with verified coordinates.',
   missing_coordinates:
     'Choose a destination from search so Tavelo can use verified coordinates for weather.',
-};
+} as const;
 
 export async function getTripWeather(
   userId: string,

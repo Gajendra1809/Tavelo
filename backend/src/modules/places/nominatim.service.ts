@@ -79,27 +79,27 @@ export async function searchPlacesNominatim(
     return [];
   }
 
-  return rows
-    .map((row) => {
-      const lat = Number(row.lat);
-      const lon = Number(row.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        return null;
-      }
-      const placeId = row.place_id !== undefined ? String(row.place_id) : '';
-      if (!placeId) {
-        return null;
-      }
-      return {
-        name: primaryName(row),
-        formattedAddress: row.display_name?.trim() ?? primaryName(row),
-        latitude: lat,
-        longitude: lon,
-        placeId,
-        provider: 'nominatim' as const,
-      } satisfies PlaceSearchResult;
-    })
-    .filter((item): item is PlaceSearchResult => item !== null);
+  const results: PlaceSearchResult[] = [];
+  for (const row of rows) {
+    const lat = Number(row.lat);
+    const lon = Number(row.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      continue;
+    }
+    const placeId = row.place_id !== undefined ? String(row.place_id) : '';
+    if (!placeId) {
+      continue;
+    }
+    results.push({
+      name: primaryName(row),
+      formattedAddress: row.display_name?.trim() ?? primaryName(row),
+      latitude: lat,
+      longitude: lon,
+      placeId,
+      provider: 'nominatim',
+    });
+  }
+  return results;
 }
 
 /** Test helper */
