@@ -115,6 +115,8 @@ export async function deleteTrip(ownerId: string, id: string): Promise<void> {
   await deleteMemoriesForTrip(existing._id);
   const { deleteBookingsForTrip } = await import('../bookings/booking.service');
   await deleteBookingsForTrip(existing._id);
+  const { deletePackingForTrip } = await import('../packing/packing.service');
+  await deletePackingForTrip(existing._id);
   await tryDeleteStoredObject(existing.coverObjectKey ?? null);
 }
 

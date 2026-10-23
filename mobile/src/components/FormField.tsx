@@ -17,6 +17,7 @@ type FormFieldProps = {
   trailing?: ReactNode;
   onFocus?: TextInputProps['onFocus'];
   autoFocus?: boolean;
+  maxLength?: number;
 };
 
 export function FormField({
@@ -34,6 +35,7 @@ export function FormField({
   trailing,
   onFocus,
   autoFocus = false,
+  maxLength,
 }: FormFieldProps) {
   return (
     <View style={styles.field}>
@@ -53,6 +55,7 @@ export function FormField({
           textContentType={textContentType}
           onFocus={onFocus}
           autoFocus={autoFocus}
+          maxLength={maxLength}
           style={[styles.input, multiline ? styles.multiline : null]}
         />
         {trailing}

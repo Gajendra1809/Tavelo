@@ -16,6 +16,7 @@ Product-level rules and backend signing behavior are in [docs/ARCHITECTURE.md](.
 | `profileCache.ts` | `profileCache` | `PROFILE_TTL_MS` (120s) | Last successful `GET /users/me` timestamp |
 | `avatarDisplay.ts` | `bumpAvatarDisplayGeneration`, `avatarImageCacheKey` | (in-memory generation) | Busts `expo-image` cache after avatar upload/delete when signed URLs repeat |
 | `activityCache.ts` | `activityCache` | `ACTIVITY_DAY_TTL_MS` (60s) | Itinerary activities for `tripId` + calendar day |
+| `packingCache.ts` | `packingCache` | `PACKING_TTL_MS` (60s) | Group and personal packing lists per trip |
 
 ## Hooks
 
@@ -50,6 +51,7 @@ After a successful write, invalidate the smallest set of keys so the next focus 
 | Expense / settlement change | `expenseCache.invalidate(tripId)` then forced reload |
 | Memory upload / caption / delete | `memoryCache` patched or invalidated in `TripMemoriesScreen` |
 | Itinerary CRUD | `activityCache.invalidateDay(tripId, day)` |
+| Packing CRUD | `packingCache` patched in `TripPackingSection` (in-flight list fetches are ignored after a local write); `packingCache.invalidate(tripId)` on trip delete or member remove. The Packing tab refetches on focus so shared group changes from other members appear on revisit. |
 | Avatar change | `profileCache.invalidate()` |
 
 ## Memories filter

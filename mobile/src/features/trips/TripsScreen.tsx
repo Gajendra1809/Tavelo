@@ -50,7 +50,7 @@ export function TripsScreen() {
         <EmptyState
           title="No trips yet"
           message="Create a trip with a destination and dates. It will be saved and listed here."
-          illustration="travel"
+          mascot
         />
       ) : null}
       {noSearchResults ? (

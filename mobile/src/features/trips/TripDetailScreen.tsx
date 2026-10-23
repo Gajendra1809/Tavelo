@@ -23,11 +23,13 @@ import { TripMemberSearch } from '@/features/trips/TripMemberSearch';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
 import { expenseCache } from '@/lib/cache/expenseCache';
 import { memoryCache } from '@/lib/cache/memoryCache';
+import { packingCache } from '@/lib/cache/packingCache';
 import { tripCache } from '@/lib/cache/tripCache';
 import { deleteTrip } from '@/services/tripService';
 import type { SentInvitation } from '@/types/invitation';
 import type { Trip } from '@/types/trip';
 import { TripItinerarySection } from '@/features/trips/TripItinerarySection';
+import { TripPackingSection } from '@/features/trips/TripPackingSection';
 import { LocationInlineSummary } from '@/features/location/components/LocationInlineSummary';
 import { resolvePlace } from '@/features/location/placeHelpers';
 import {
@@ -40,6 +42,7 @@ import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 const DETAIL_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'itinerary', label: 'Itinerary' },
+  { id: 'packing', label: 'Packing' },
   { id: 'bookings', label: 'Bookings' },
   { id: 'expenses', label: 'Expenses' },
   { id: 'memories', label: 'Memories' },
@@ -106,6 +109,7 @@ export function TripDetailScreen() {
       tripCache.invalidateTrip(trip.id);
       tripCache.invalidateList();
       memoryCache.invalidate(trip.id);
+      packingCache.invalidate(trip.id);
       router.replace('/trips' as Href);
     } catch (deleteError) {
       deletingRef.current = false;
@@ -138,6 +142,7 @@ export function TripDetailScreen() {
           };
           tripCache.setTrip(next);
           expenseCache.invalidate(trip.id);
+          packingCache.invalidate(trip.id);
         }
       }
     } catch (membershipFailure) {
@@ -342,6 +347,10 @@ export function TripDetailScreen() {
           startDate={trip.startDate}
           endDate={trip.endDate}
         />
+      ) : null}
+
+      {activeTab === 'packing' ? (
+        <TripPackingSection key={trip.id} tripId={trip.id} members={trip.members} />
       ) : null}
 
       {activeTab === 'bookings' ? (

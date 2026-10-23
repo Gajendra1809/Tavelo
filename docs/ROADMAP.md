@@ -45,6 +45,7 @@ Status: shared itinerary on trip details is implemented.
 - Day tabs follow the trip’s start and end dates.
 - Activities store title, optional location, date, optional times, and notes.
 - Accepted members can add, edit, and delete activities on the server.
+- Shared packing (group list + private personal list) is implemented. See [PACKING.md](./PACKING.md).
 - Maps, drag-and-drop scheduling, and offline sync are still ahead.
 
 ## Phase 4 — Bookings and expense splitting

@@ -88,7 +88,7 @@ The HTTP status is 200.
 
 `POST /api/v1/auth/register` and `POST /api/v1/auth/login` return an access token and a refresh token. `POST /api/v1/auth/refresh` rotates the refresh token. `POST /api/v1/auth/logout` revokes it.
 
-`GET`, `POST`, `PATCH`, and `DELETE` under `/api/v1/trips` require `Authorization: Bearer <access token>`. Dates are `YYYY-MM-DD`. Creating a trip stores the signed-in user as the owner. Only that owner can edit or delete it, invite someone, or remove a member. `GET /api/v1/invitations` lists invitations waiting for the signed-in person. Invites look up an existing account by email; there is no outbound mail yet. Future scope: email unknown addresses, ask them to register, then attach the pending invite when they sign up with the same email (third-party provider). Itinerary activities are under `/api/v1/trips/:id/activities` (list, create, get, update, delete). Only accepted trip members can use them. Activity dates must fall within the trip dates. Expenses use `/api/v1/trips/:id/expenses` and settlements under `/api/v1/trips/:id/settlements`. Amounts are integer minor units (INR paise by default). Balances and settlement suggestions are computed on the server. Feature rules (who may add, edit, record, or cancel) are listed in [ARCHITECTURE.md](./ARCHITECTURE.md#group-expenses-and-settlements-business-rules).
+`GET`, `POST`, `PATCH`, and `DELETE` under `/api/v1/trips` require `Authorization: Bearer <access token>`. Dates are `YYYY-MM-DD`. Creating a trip stores the signed-in user as the owner. Only that owner can edit or delete it, invite someone, or remove a member. `GET /api/v1/invitations` lists invitations waiting for the signed-in person. Invites look up an existing account by email; there is no outbound mail yet. Future scope: email unknown addresses, ask them to register, then attach the pending invite when they sign up with the same email (third-party provider). Itinerary activities are under `/api/v1/trips/:id/activities` (list, create, get, update, delete). Only accepted trip members can use them. Activity dates must fall within the trip dates. Shared packing is under `/api/v1/trips/:id/packing/group` and `/api/v1/trips/:id/packing/mine`. Group items are shared; personal items (`/mine`) are visible only to the signed-in member. See [PACKING.md](./PACKING.md). Expenses use `/api/v1/trips/:id/expenses` and settlements under `/api/v1/trips/:id/settlements`. Amounts are integer minor units (INR paise by default). Balances and settlement suggestions are computed on the server. Feature rules (who may add, edit, record, or cancel) are listed in [ARCHITECTURE.md](./ARCHITECTURE.md#group-expenses-and-settlements-business-rules).
 
 Profile avatars and trip covers use [Supabase Storage](https://supabase.com/docs/guides/storage) when storage is enabled. See [ARCHITECTURE.md](./ARCHITECTURE.md#media-storage-business-rules) for permission rules.
 
@@ -290,6 +290,12 @@ npm test
 ```
 
 Backend tests do not need Atlas. They cover configuration parsing, CORS decisions, request validation, trip input rules, the health report while MongoDB is disconnected, unknown routes, and malformed JSON. Memory integration tests run with `STORAGE_ENABLED=false` unless you configure storage locally.
+
+Packing schema and integration tests (from `backend/`):
+
+```powershell
+npx tsx --test --test-concurrency=1 src/modules/packing/packing.schema.test.ts src/modules/packing/packing.integration.test.ts
+```
 
 ## Android cleartext HTTP
 

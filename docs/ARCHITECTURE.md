@@ -49,6 +49,7 @@ The app does not use TanStack Query. Instead, small in-memory TTL stores under `
 | `invitationCache` | 60s | Received invitations |
 | `profileCache` | 120s | Profile focus refresh via `refreshProfile` |
 | `activityCache` | 60s per trip day | Itinerary section on trip detail |
+| `packingCache` | 60s per trip | Packing tab (group + personal lists; paints cache, then refetches on focus) |
 
 **Hooks:** `useTrips` (list + `seedTripForNavigation`), `useTripFromCache` (single trip with stale-while-revalidate).
 
@@ -110,6 +111,8 @@ Full examples: [`backend/.env.example`](../backend/.env.example). Setup steps: [
 Trips, itinerary activities, and bookings store an optional structured **place** alongside legacy text (`destination` / `location`). Mobile uses a shared location picker; the API exposes `GET /places/search` (Nominatim proxy, authenticated). Directions use Google Maps URLs on the device—no Maps API key. Details: [LOCATION.md](./LOCATION.md).
 
 Trip destination weather (Open-Meteo via backend proxy, in-card on Trip Details): [WEATHER.md](./WEATHER.md).
+
+Shared packing (group list + private personal list) on Trip Details: [PACKING.md](./PACKING.md).
 
 ## API responses
 
@@ -219,6 +222,10 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `POST` | `/api/v1/trips/:id/memories/upload-intent` | Member prepares upload; returns presigned PUT URL |
 | `POST` | `/api/v1/trips/:id/memories` | Member completes upload (object keys, caption, optional thumbnail key) |
 | `PATCH/DELETE` | `/api/v1/trips/:id/memories/:memoryId` | Uploader or owner updates caption or deletes item |
+| `GET/POST` | `/api/v1/trips/:id/packing/group` | Member lists or creates shared packing items |
+| `PATCH/DELETE` | `/api/v1/trips/:id/packing/group/:itemId` | Member updates or deletes a group packing item |
+| `GET/POST` | `/api/v1/trips/:id/packing/mine` | Member lists or creates **their own** personal packing items |
+| `PATCH/DELETE` | `/api/v1/trips/:id/packing/mine/:itemId` | Owner of that personal item only |
 | `GET/POST` | `/api/v1/trips/:id/bookings` | Member lists or creates shared bookings (optional `?category=`) |
 | `GET/PATCH/DELETE` | `/api/v1/trips/:id/bookings/:bookingId` | Member reads; creator or owner updates or deletes |
 | `POST` | `/api/v1/trips/:id/bookings/:bookingId/attachments/upload-intent` | Member prepares document upload (presigned PUT) |
@@ -277,11 +284,13 @@ Expenses live in an `Expense` collection with embedded share rows (`userId`, `am
 | **Record settlement** | Only the **payer** or **recipient** of that transfer may record it (403 for other members). Amount cannot exceed the outstanding balance between those two for that currency. |
 | **Cancel settlement** | The member who recorded it, or the trip owner. Cancelling unlocks expense edits again. |
 | **Former members** | Removed members remain on historical expense rows; names show as “Former member” when they are no longer on the trip. |
-| **Trip delete** | Deletes that trip’s bookings (and attachment objects when storage is on), expenses, settlements, memories, invitations, and activities. |
+| **Trip delete** | Deletes that trip’s bookings (and attachment objects when storage is on), expenses, settlements, memories, invitations, activities, and packing items. |
 
 Responses always include the trip owner in the member list even when older data stored only invitees in `members`.
 
-Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities, bookings (and booking attachment objects when storage is enabled), expenses, settlements, invitations, and memories.
+Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities, bookings (and booking attachment objects when storage is enabled), expenses, settlements, invitations, memories, and packing items.
+
+Shared packing (`PackingItem`) has two kinds. **Group** items are visible to every accepted member; any member may add, edit, tick packed, assign a current member as owner, or delete. **Personal** items (`kind: 'personal'`) are queried only as `{ tripId, userId: <auth> }`; other members cannot list, patch, or delete them (unknown ids return `404`). The packed flag on the wire is `packed`. Each list is capped at 100 items. Removing a member deletes their personal packing on that trip and clears them as owner on group items. Details: [PACKING.md](./PACKING.md).
 
 Invitations are stored separately from the trip, with a status of pending, accepted, or declined. A unique index allows only one pending invitation for the same trip and person. Accepting adds that person to `members` with the member role. Declining does not. Deleting a trip also deletes its invitations. Only an **existing** Tavelo account can be invited from the mobile app today: trip owners search by name, username, or email, then send `{ userId }`. The API still accepts `{ email }` for registered users (used in tests and for backward compatibility). The app does not send email.
 

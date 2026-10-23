@@ -13,7 +13,7 @@ import { initials } from '@/components/CoverMark';
 import { images } from '@/constants/images';
 import { colors, typography } from '@/theme';
 
-type UserAvatarSize = 'sm' | 'md' | 'lg';
+type UserAvatarSize = 'xs' | 'sm' | 'md' | 'lg';
 
 type UserAvatarProps = {
   name: string;
@@ -26,12 +26,14 @@ type UserAvatarProps = {
 };
 
 const sizePx: Record<UserAvatarSize, number> = {
+  xs: 32,
   sm: 36,
   md: 44,
   lg: 88,
 };
 
 const fontSize: Record<UserAvatarSize, number> = {
+  xs: 11,
   sm: 12,
   md: 14,
   lg: 28,

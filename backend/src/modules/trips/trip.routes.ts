@@ -100,6 +100,26 @@ import {
 import { createTrip, deleteTrip, getTrip, listTrips, updateTrip } from './trip.service';
 import { tripWeatherQuerySchema, type TripWeatherQuery } from '../weather/weather.schema';
 import { getTripWeather } from '../weather/weather.service';
+import {
+  createGroupPackingSchema,
+  createPersonalPackingSchema,
+  updateGroupPackingSchema,
+  updatePersonalPackingSchema,
+  type CreateGroupPackingInput,
+  type CreatePersonalPackingInput,
+  type UpdateGroupPackingInput,
+  type UpdatePersonalPackingInput,
+} from '../packing/packing.schema';
+import {
+  createGroupPacking,
+  createPersonalPacking,
+  deleteGroupPacking,
+  deletePersonalPacking,
+  listGroupPacking,
+  listPersonalPacking,
+  updateGroupPacking,
+  updatePersonalPacking,
+} from '../packing/packing.service';
 
 export const tripRouter = Router();
 
@@ -222,6 +242,102 @@ tripRouter.delete(
       currentUserId(req),
       paramId(req.params.id),
       paramId(req.params.activityId),
+    );
+    sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.get(
+  '/:id/packing/group',
+  asyncHandler(async (req, res) => {
+    sendSuccess(res, await listGroupPacking(currentUserId(req), paramId(req.params.id)));
+  }),
+);
+
+tripRouter.post(
+  '/:id/packing/group',
+  validate({ body: createGroupPackingSchema }),
+  asyncHandler(async (req, res) => {
+    const item = await createGroupPacking(
+      currentUserId(req),
+      paramId(req.params.id),
+      req.validated?.body as CreateGroupPackingInput,
+    );
+    sendSuccess(res, item, 201);
+  }),
+);
+
+tripRouter.patch(
+  '/:id/packing/group/:itemId',
+  validate({ body: updateGroupPackingSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await updateGroupPacking(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.itemId),
+        req.validated?.body as UpdateGroupPackingInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/packing/group/:itemId',
+  asyncHandler(async (req, res) => {
+    await deleteGroupPacking(
+      currentUserId(req),
+      paramId(req.params.id),
+      paramId(req.params.itemId),
+    );
+    sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.get(
+  '/:id/packing/mine',
+  asyncHandler(async (req, res) => {
+    sendSuccess(res, await listPersonalPacking(currentUserId(req), paramId(req.params.id)));
+  }),
+);
+
+tripRouter.post(
+  '/:id/packing/mine',
+  validate({ body: createPersonalPackingSchema }),
+  asyncHandler(async (req, res) => {
+    const item = await createPersonalPacking(
+      currentUserId(req),
+      paramId(req.params.id),
+      req.validated?.body as CreatePersonalPackingInput,
+    );
+    sendSuccess(res, item, 201);
+  }),
+);
+
+tripRouter.patch(
+  '/:id/packing/mine/:itemId',
+  validate({ body: updatePersonalPackingSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await updatePersonalPacking(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.itemId),
+        req.validated?.body as UpdatePersonalPackingInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/packing/mine/:itemId',
+  asyncHandler(async (req, res) => {
+    await deletePersonalPacking(
+      currentUserId(req),
+      paramId(req.params.id),
+      paramId(req.params.itemId),
     );
     sendSuccess(res, { deleted: true });
   }),

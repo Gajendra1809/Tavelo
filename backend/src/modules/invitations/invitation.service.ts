@@ -215,6 +215,8 @@ export async function removeMember(ownerId: string, tripId: string, memberId: st
   if (removed.modifiedCount === 0) {
     throw new AppError(404, 'NOT_FOUND', 'That person is not on this trip.');
   }
+  const { clearPackingForRemovedMember } = await import('../packing/packing.service');
+  await clearPackingForRemovedMember(trip._id, memberId);
 }
 
 export async function deleteInvitationsForTrip(tripId: mongoose.Types.ObjectId): Promise<void> {

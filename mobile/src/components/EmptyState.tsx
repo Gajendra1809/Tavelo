@@ -1,4 +1,5 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { TaveloMascot } from '@/components/TaveloMascot';
 import { illustrationSource, type IllustrationKey } from '@/constants/images';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -6,12 +7,14 @@ type EmptyStateProps = {
   title: string;
   message: string;
   illustration?: IllustrationKey;
+  mascot?: boolean;
 };
 
-export function EmptyState({ title, message, illustration }: EmptyStateProps) {
+export function EmptyState({ title, message, illustration, mascot = false }: EmptyStateProps) {
   return (
-    <View style={styles.container}>
-      {illustration ? (
+    <View style={[styles.container, mascot ? styles.containerOpen : null]}>
+      {mascot ? <TaveloMascot size={132} /> : null}
+      {!mascot && illustration ? (
         <Image
           accessibilityIgnoresInvertColors
           source={illustrationSource(illustration)}
@@ -32,6 +35,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.seafoam,
     alignItems: 'center',
+  },
+  containerOpen: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
   },
   image: {
     width: '100%',

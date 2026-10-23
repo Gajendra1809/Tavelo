@@ -55,7 +55,7 @@ export function HomeScreen() {
         <EmptyState
           title="No upcoming trips"
           message="When you create a trip, it will show up here with its destination and dates."
-          illustration="travel"
+          mascot
         />
       ) : null}
       {upcoming.map((trip) => (

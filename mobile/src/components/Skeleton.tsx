@@ -30,9 +30,8 @@ export function Skeleton({ height = 92 }: SkeletonProps) {
 export function TripListSkeleton() {
   return (
     <View style={styles.list}>
-      <Skeleton />
-      <Skeleton />
-      <Skeleton />
+      <Skeleton height={248} />
+      <Skeleton height={248} />
     </View>
   );
 }
