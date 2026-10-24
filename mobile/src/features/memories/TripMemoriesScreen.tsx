@@ -49,12 +49,13 @@ type UploadQueueItem = {
 
 type TripMemoriesScreenProps = {
   tripId: string;
+  embedded?: boolean;
 };
 
 const FILTERS: MemoryFilter[] = ['all', 'image', 'video'];
 const GRID_GAP = 2;
 
-export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
+export function TripMemoriesScreen({ tripId, embedded = false }: TripMemoriesScreenProps) {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const columns = width >= 900 ? 4 : 3;
@@ -265,10 +266,14 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
       : null;
 
   useEffect(() => {
+    if (embedded) {
+      navigation.setOptions({ headerShown: true });
+      return;
+    }
     navigation.setOptions({
-      headerShown: viewerIndex === null && !selectionMode,
+      headerShown: viewerIndex === null,
     });
-  }, [navigation, selectionMode, viewerIndex]);
+  }, [embedded, navigation, viewerIndex]);
 
   useEffect(() => {
     if (viewerIndex === null) {
@@ -444,7 +449,7 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
   const listHeader = (
     <View style={styles.headerBlock}>
       <View style={styles.headerCard}>
-        <Text style={styles.tripName}>{tripName || 'Trip memories'}</Text>
+        {embedded ? null : <Text style={styles.tripName}>{tripName || 'Trip memories'}</Text>}
         <Text style={styles.summary}>
           {counts.total} items · {counts.photoCount} photos · {counts.videoCount} videos
         </Text>
@@ -525,23 +530,23 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
 
   if (loading && items.length === 0) {
     return (
-      <View style={styles.root}>
-        <Atmosphere />
-        <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safe}>
+      <View style={embedded ? styles.embedded : styles.root}>
+        {embedded ? null : <Atmosphere />}
+        <View style={styles.safe}>
           <View style={styles.headerBlock}>
             <Skeleton height={48} />
             <Skeleton height={120} />
           </View>
-        </SafeAreaView>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar style={viewerIndex !== null ? 'light' : 'dark'} />
-      <Atmosphere />
-      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safe}>
+    <View style={embedded ? styles.embedded : styles.root}>
+      {embedded ? null : <StatusBar style={viewerIndex !== null ? 'light' : 'dark'} />}
+      {embedded ? null : <Atmosphere />}
+      <SafeAreaView edges={embedded ? [] : ['left', 'right', 'bottom']} style={styles.safe}>
         <FlatList
           data={visibleItems}
           key={columns}
@@ -583,7 +588,7 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
         />
       </SafeAreaView>
       {selectionMode ? (
-        <SafeAreaView edges={['bottom']} style={styles.selectionBar}>
+        <SafeAreaView edges={embedded ? [] : ['bottom']} style={styles.selectionBar}>
           <Text style={styles.selectionCount}>
             {selectedIds.size} selected
           </Text>
@@ -602,6 +607,7 @@ export function TripMemoriesScreen({ tripId }: TripMemoriesScreenProps) {
           canEdit={viewerPermissions.canEdit}
           canDelete={viewerPermissions.canDelete}
           busy={viewerBusy}
+          inset={embedded ? 'contained' : 'screen'}
           onClose={closeViewer}
           onIndexChange={setViewerIndex}
           onSaveCaption={(caption) => void saveCaption(caption)}
@@ -627,6 +633,12 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.sky,
+  },
+  embedded: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
   },
   safe: {
     flex: 1,
@@ -708,6 +720,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.line,

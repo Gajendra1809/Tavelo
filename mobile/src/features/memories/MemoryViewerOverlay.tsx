@@ -19,6 +19,7 @@ import { CachedImage } from '@/components/CachedImage';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { UserAvatar } from '@/components/UserAvatar';
+import { formatDisplayDate } from '@/lib/dates';
 import { colors, spacing, typography } from '@/theme';
 import type { TripMemoryItem } from '@/types/memory';
 
@@ -34,6 +35,7 @@ type MemoryViewerOverlayProps = {
   onDelete: () => void;
   onDownload: () => void;
   downloading?: boolean;
+  inset?: 'screen' | 'contained';
 };
 
 export function MemoryViewerOverlay({
@@ -48,6 +50,7 @@ export function MemoryViewerOverlay({
   onDelete,
   onDownload,
   downloading = false,
+  inset = 'screen',
 }: MemoryViewerOverlayProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -117,7 +120,7 @@ export function MemoryViewerOverlay({
 
   return (
     <View style={styles.overlay} accessibilityViewIsModal>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.xs }]}>
+      <View style={[styles.topBar, { paddingTop: (inset === 'screen' ? insets.top : 0) + spacing.xs }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close viewer"
@@ -206,7 +209,10 @@ export function MemoryViewerOverlay({
 
       <ScrollView
         style={styles.metaScroll}
-        contentContainerStyle={[styles.metaContent, { paddingBottom: insets.bottom + spacing.lg }]}
+        contentContainerStyle={[
+          styles.metaContent,
+          { paddingBottom: (inset === 'screen' ? insets.bottom : 0) + spacing.lg },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.metaRow}>
@@ -219,8 +225,8 @@ export function MemoryViewerOverlay({
           <View style={styles.metaCopy}>
             <Text style={styles.uploader}>{item.uploader.name}</Text>
             <Text style={styles.date}>
-              {new Date(item.createdAt).toLocaleDateString()}
-              {item.capturedAt ? ` · Taken ${item.capturedAt}` : ''}
+              {formatDisplayDate(item.createdAt)}
+              {item.capturedAt ? ` · Taken ${formatDisplayDate(item.capturedAt)}` : ''}
             </Text>
           </View>
         </View>

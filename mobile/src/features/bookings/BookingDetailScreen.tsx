@@ -10,7 +10,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { categoryLabel } from '@/features/bookings/bookingLabels';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
-import { formatDateRange } from '@/lib/dates';
+import { formatDisplayDate, formatDateRange } from '@/lib/dates';
 import { ApiError } from '@/lib/apiClient';
 import { logAppError, userFacingMessage } from '@/lib/errorReport';
 import { promptBookingAttachmentSource } from '@/features/bookings/promptBookingAttachmentSource';
@@ -147,7 +147,7 @@ export function BookingDetailScreen({ tripId, bookingId }: Props) {
   const dates =
     booking.endDate && booking.endDate !== booking.startDate
       ? formatDateRange(booking.startDate, booking.endDate)
-      : booking.startDate;
+      : formatDisplayDate(booking.startDate);
 
   return (
     <Screen>

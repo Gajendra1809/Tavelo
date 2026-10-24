@@ -1,13 +1,20 @@
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Atmosphere } from '@/components/Atmosphere';
+import { TripBookingsScreen } from '@/features/bookings/TripBookingsScreen';
+import { TripChatScreen } from '@/features/chat/TripChatScreen';
+import { TripExpensesScreen } from '@/features/expenses/TripExpensesScreen';
+import { TripMemoriesScreen } from '@/features/memories/TripMemoriesScreen';
+import { TripCompactBanner } from '@/features/trips/TripCompactBanner';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CoverMark } from '@/components/CoverMark';
 import { SegmentTabs } from '@/components/SegmentTabs';
 import { UserAvatar } from '@/components/UserAvatar';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
-import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { Skeleton } from '@/components/Skeleton';
@@ -23,8 +30,10 @@ import { TripMemberSearch } from '@/features/trips/TripMemberSearch';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
 import { expenseCache } from '@/lib/cache/expenseCache';
 import { memoryCache } from '@/lib/cache/memoryCache';
+import { chatCache } from '@/lib/cache/chatCache';
 import { packingCache } from '@/lib/cache/packingCache';
 import { tripCache } from '@/lib/cache/tripCache';
+import { readTripTab, rememberTripTab } from '@/lib/tripTabMemory';
 import { deleteTrip } from '@/services/tripService';
 import type { SentInvitation } from '@/types/invitation';
 import type { Trip } from '@/types/trip';
@@ -41,6 +50,7 @@ import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 
 const DETAIL_TABS = [
   { id: 'overview', label: 'Overview' },
+  { id: 'chat', label: 'Chat' },
   { id: 'itinerary', label: 'Itinerary' },
   { id: 'packing', label: 'Packing' },
   { id: 'bookings', label: 'Bookings' },
@@ -50,11 +60,17 @@ const DETAIL_TABS = [
 
 type DetailTab = (typeof DETAIL_TABS)[number]['id'];
 
+function isDetailTab(value: string | undefined): value is DetailTab {
+  return DETAIL_TABS.some((tab) => tab.id === value);
+}
+
 export function TripDetailScreen() {
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; tab?: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const tabParam = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const { user } = useAuth();
   const deletingRef = useRef(false);
+  const restoredTabRef = useRef(false);
   const { trip, loading, error, errorStatus, refresh } = useTripFromCache(id);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -64,7 +80,14 @@ export function TripDetailScreen() {
   const [confirmMember, setConfirmMember] = useState<
     { kind: 'cancel'; invitation: SentInvitation } | { kind: 'remove'; userId: string; name: string } | null
   >(null);
-  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [activeTab, setActiveTab] = useState<DetailTab>(() => {
+    if (isDetailTab(tabParam)) {
+      return tabParam;
+    }
+    const remembered = readTripTab(id);
+    return isDetailTab(remembered) ? remembered : 'overview';
+  });
+  const chatKeyboardInset = useKeyboardInset();
   const destinationPlaceForWeather = trip
     ? resolvePlace(trip.destinationPlace ?? null, trip.destination)
     : null;
@@ -89,6 +112,43 @@ export function TripDetailScreen() {
     }, [refresh]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (id) {
+          rememberTripTab(id, activeTab);
+        }
+      };
+    }, [activeTab, id]),
+  );
+
+  useEffect(() => {
+    if (isDetailTab(tabParam)) {
+      setActiveTab(tabParam);
+      if (id) {
+        rememberTripTab(id, tabParam);
+      }
+    }
+  }, [id, tabParam]);
+
+  useEffect(() => {
+    if (restoredTabRef.current) {
+      return;
+    }
+    restoredTabRef.current = true;
+    if (!isDetailTab(tabParam) && activeTab !== 'overview') {
+      router.setParams({ tab: activeTab });
+    }
+  }, [activeTab, tabParam]);
+
+  function selectTab(next: DetailTab) {
+    setActiveTab(next);
+    if (id) {
+      rememberTripTab(id, next);
+    }
+    router.setParams({ tab: next });
+  }
+
   useEffect(() => {
     const handle = setTimeout(() => {
       void loadInvites();
@@ -110,6 +170,7 @@ export function TripDetailScreen() {
       tripCache.invalidateList();
       memoryCache.invalidate(trip.id);
       packingCache.invalidate(trip.id);
+      chatCache.invalidate(trip.id);
       router.replace('/trips' as Href);
     } catch (deleteError) {
       deletingRef.current = false;
@@ -143,6 +204,7 @@ export function TripDetailScreen() {
           tripCache.setTrip(next);
           expenseCache.invalidate(trip.id);
           packingCache.invalidate(trip.id);
+          chatCache.invalidate(trip.id);
         }
       }
     } catch (membershipFailure) {
@@ -183,6 +245,62 @@ export function TripDetailScreen() {
   const members = trip.members ?? [];
   const destinationPlace = destinationPlaceForWeather!;
 
+  if (activeTab !== 'overview') {
+    return (
+      <View style={styles.tabPage}>
+        <Atmosphere />
+        <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.tabSafe}>
+          <View style={styles.tabHeader}>
+            <TripCompactBanner trip={trip} />
+            <SegmentTabs tabs={[...DETAIL_TABS]} active={activeTab} onChange={selectTab} />
+          </View>
+          <View
+            style={[
+              styles.tabPane,
+              activeTab === 'chat' ? { paddingBottom: chatKeyboardInset } : null,
+            ]}
+          >
+            {activeTab === 'chat' ? (
+              <TripChatScreen key={trip.id} tripId={trip.id} embedded />
+            ) : null}
+            {activeTab === 'itinerary' ? (
+              <ScrollView
+                style={styles.tabScroll}
+                contentContainerStyle={styles.tabScrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                <TripItinerarySection
+                  key={trip.id}
+                  tripId={trip.id}
+                  startDate={trip.startDate}
+                  endDate={trip.endDate}
+                />
+              </ScrollView>
+            ) : null}
+            {activeTab === 'packing' ? (
+              <ScrollView
+                style={styles.tabScroll}
+                contentContainerStyle={styles.tabScrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                <TripPackingSection key={trip.id} tripId={trip.id} members={trip.members} />
+              </ScrollView>
+            ) : null}
+            {activeTab === 'bookings' ? (
+              <TripBookingsScreen key={trip.id} tripId={trip.id} embedded />
+            ) : null}
+            {activeTab === 'expenses' ? (
+              <TripExpensesScreen key={trip.id} tripId={trip.id} embedded />
+            ) : null}
+            {activeTab === 'memories' ? (
+              <TripMemoriesScreen key={trip.id} tripId={trip.id} embedded />
+            ) : null}
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <CoverMark
@@ -213,10 +331,9 @@ export function TripDetailScreen() {
           tripEndDate={trip.endDate}
         />
       </View>
-      <SegmentTabs tabs={[...DETAIL_TABS]} active={activeTab} onChange={setActiveTab} />
+      <SegmentTabs tabs={[...DETAIL_TABS]} active={activeTab} onChange={selectTab} />
 
-      {activeTab === 'overview' ? (
-        <>
+      <>
           <View style={styles.card}>
             <Text style={styles.sectionLabel}>Description</Text>
             {trip.description ? (
@@ -337,58 +454,7 @@ export function TripDetailScreen() {
             </View>
           ) : null}
           {actionError ? <ErrorState title="Could not delete" message={actionError} /> : null}
-        </>
-      ) : null}
-
-      {activeTab === 'itinerary' ? (
-        <TripItinerarySection
-          key={trip.id}
-          tripId={trip.id}
-          startDate={trip.startDate}
-          endDate={trip.endDate}
-        />
-      ) : null}
-
-      {activeTab === 'packing' ? (
-        <TripPackingSection key={trip.id} tripId={trip.id} members={trip.members} />
-      ) : null}
-
-      {activeTab === 'bookings' ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Bookings</Text>
-          <Text style={styles.muted}>
-            Keep hotel, train, flight, and ticket confirmations in one shared place for the group.
-          </Text>
-          <PrimaryButton
-            label="Open bookings"
-            onPress={() => router.push(`/trip/${trip.id}/bookings` as Href)}
-          />
-        </View>
-      ) : null}
-
-      {activeTab === 'expenses' ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Expenses</Text>
-          <Text style={styles.muted}>
-            Track shared costs, who owes whom, and record settlements with the group.
-          </Text>
-          <PrimaryButton
-            label="Open expense ledger"
-            onPress={() => router.push(`/trip/${trip.id}/expenses` as Href)}
-          />
-        </View>
-      ) : null}
-
-      {activeTab === 'memories' ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Memories</Text>
-          <Text style={styles.muted}>Share photos and videos with everyone on this trip.</Text>
-          <PrimaryButton
-            label="Open trip gallery"
-            onPress={() => router.push(`/trip/${trip.id}/memories` as Href)}
-          />
-        </View>
-      ) : null}
+      </>
       <ConfirmDialog
         visible={confirmDelete}
         title="Delete this trip?"
@@ -418,6 +484,34 @@ export function TripDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  tabPage: {
+    flex: 1,
+    backgroundColor: colors.sky,
+  },
+  tabSafe: {
+    flex: 1,
+    zIndex: 1,
+  },
+  tabHeader: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  tabPane: {
+    flex: 1,
+    minHeight: 0,
+    paddingTop: spacing.sm,
+  },
+  tabScroll: {
+    flex: 1,
+  },
+  tabScrollContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
+  },
   cover: {
     height: 220,
     borderRadius: radius.xl,

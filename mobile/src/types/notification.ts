@@ -1,4 +1,4 @@
-export type NotificationEntityType = 'invitation' | 'booking' | 'expense' | 'settlement';
+export type NotificationEntityType = 'invitation' | 'booking' | 'expense' | 'settlement' | 'message' | 'poll';
 
 export type AppNotification = {
   id: string;

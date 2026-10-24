@@ -120,6 +120,42 @@ import {
   updateGroupPacking,
   updatePersonalPacking,
 } from '../packing/packing.service';
+import {
+  createMessageSchema,
+  listMessagesQuerySchema,
+  markChatReadSchema,
+  type CreateMessageInput,
+  type ListMessagesQuery,
+  type MarkChatReadInput,
+} from '../chat/chat.schema';
+import {
+  createTripMessage,
+  deleteTripMessage,
+  listTripMessages,
+  markTripChatRead,
+  markTripChatTyping,
+} from '../chat/chat.service';
+import {
+  addPollOptionSchema,
+  createPollSchema,
+  updatePollSchema,
+  votePollSchema,
+  type AddPollOptionInput,
+  type CreatePollInput,
+  type UpdatePollInput,
+  type VotePollInput,
+} from '../chat/poll.schema';
+import {
+  addTripPollOption,
+  closeTripPoll,
+  createTripPoll,
+  deleteTripPoll,
+  getTripPoll,
+  listTripPolls,
+  removeTripPollVote,
+  updateTripPoll,
+  voteTripPoll,
+} from '../chat/poll.service';
 
 export const tripRouter = Router();
 
@@ -340,6 +376,185 @@ tripRouter.delete(
       paramId(req.params.itemId),
     );
     sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.get(
+  '/:id/chat/messages',
+  validate({ query: listMessagesQuerySchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await listTripMessages(
+        currentUserId(req),
+        paramId(req.params.id),
+        (req.validated?.query ?? {}) as ListMessagesQuery,
+      ),
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/chat/messages',
+  validate({ body: createMessageSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await createTripMessage(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.body as CreateMessageInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/chat/messages/:messageId',
+  asyncHandler(async (req, res) => {
+    await deleteTripMessage(
+      currentUserId(req),
+      paramId(req.params.id),
+      paramId(req.params.messageId),
+    );
+    sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.post(
+  '/:id/chat/read',
+  validate({ body: markChatReadSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await markTripChatRead(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.body as MarkChatReadInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/chat/typing',
+  asyncHandler(async (req, res) => {
+    sendSuccess(res, await markTripChatTyping(currentUserId(req), paramId(req.params.id)));
+  }),
+);
+
+tripRouter.get(
+  '/:id/polls',
+  asyncHandler(async (req, res) => {
+    sendSuccess(res, await listTripPolls(currentUserId(req), paramId(req.params.id)));
+  }),
+);
+
+tripRouter.post(
+  '/:id/polls',
+  validate({ body: createPollSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await createTripPoll(
+        currentUserId(req),
+        paramId(req.params.id),
+        req.validated?.body as CreatePollInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.get(
+  '/:id/polls/:pollId',
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await getTripPoll(currentUserId(req), paramId(req.params.id), paramId(req.params.pollId)),
+    );
+  }),
+);
+
+tripRouter.patch(
+  '/:id/polls/:pollId',
+  validate({ body: updatePollSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await updateTripPoll(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.pollId),
+        req.validated?.body as UpdatePollInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/polls/:pollId',
+  asyncHandler(async (req, res) => {
+    await deleteTripPoll(currentUserId(req), paramId(req.params.id), paramId(req.params.pollId));
+    sendSuccess(res, { deleted: true });
+  }),
+);
+
+tripRouter.post(
+  '/:id/polls/:pollId/options',
+  validate({ body: addPollOptionSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await addTripPollOption(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.pollId),
+        req.validated?.body as AddPollOptionInput,
+      ),
+      201,
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/polls/:pollId/vote',
+  validate({ body: votePollSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await voteTripPoll(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.pollId),
+        req.validated?.body as VotePollInput,
+      ),
+    );
+  }),
+);
+
+tripRouter.delete(
+  '/:id/polls/:pollId/vote',
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await removeTripPollVote(
+        currentUserId(req),
+        paramId(req.params.id),
+        paramId(req.params.pollId),
+      ),
+    );
+  }),
+);
+
+tripRouter.post(
+  '/:id/polls/:pollId/close',
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await closeTripPoll(currentUserId(req), paramId(req.params.id), paramId(req.params.pollId)),
+    );
   }),
 );
 

@@ -10,6 +10,11 @@ export const NOTIFICATION_TYPES = [
   'expense_deleted',
   'settlement_recorded',
   'settlement_cancelled',
+  'chat_message',
+  'poll_created',
+  'poll_closed',
+  // Kept so older in-app rows still load. New polls no longer create this type.
+  'poll_finalized',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -19,6 +24,8 @@ export const NOTIFICATION_ENTITY_TYPES = [
   'booking',
   'expense',
   'settlement',
+  'message',
+  'poll',
 ] as const;
 
 export type NotificationEntityType = (typeof NOTIFICATION_ENTITY_TYPES)[number];

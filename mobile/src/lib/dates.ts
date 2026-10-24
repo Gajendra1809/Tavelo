@@ -15,9 +15,9 @@ export function todayDateInput(now = new Date()): string {
 }
 
 export function formatDisplayDate(value: string): string {
-  return parseDateInput(value).toLocaleDateString(undefined, {
-    month: 'short',
+  return parseDateInput(value).toLocaleDateString('en-GB', {
     day: 'numeric',
+    month: 'short',
     year: 'numeric',
   });
 }
@@ -60,10 +60,10 @@ export function enumerateDateRange(start: string, end: string): string[] {
 }
 
 export function formatDayTab(value: string): string {
-  return parseDateInput(value).toLocaleDateString(undefined, {
+  return parseDateInput(value).toLocaleDateString('en-GB', {
     weekday: 'short',
-    month: 'short',
     day: 'numeric',
+    month: 'short',
   });
 }
 

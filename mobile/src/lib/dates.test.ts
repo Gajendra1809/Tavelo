@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { formatTripLength, tripLengthDays } from './dates';
+import { formatDisplayDate, formatDateRange, formatTripLength, tripLengthDays } from './dates';
+
+describe('display dates', () => {
+  it('uses day month year so month and day are never ambiguous', () => {
+    assert.equal(formatDisplayDate('2026-12-25'), '25 Dec 2026');
+    assert.equal(formatDateRange('2026-12-25', '2026-12-25'), '25 Dec 2026');
+    assert.equal(formatDateRange('2026-12-25', '2026-12-28'), '25 Dec 2026 – 28 Dec 2026');
+  });
+});
 
 describe('trip length', () => {
   it('counts inclusive calendar days from the date strings', () => {

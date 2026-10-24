@@ -1,6 +1,7 @@
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomFormSheet } from '@/components/BottomFormSheet';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
@@ -34,9 +35,14 @@ import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 
 const categories = ['food', 'transport', 'lodging', 'activities', 'shopping', 'other'] as const;
 
-export function TripExpensesScreen() {
+type TripExpensesScreenProps = {
+  tripId?: string;
+  embedded?: boolean;
+};
+
+export function TripExpensesScreen({ tripId: tripIdProp, embedded = false }: TripExpensesScreenProps = {}) {
   const params = useLocalSearchParams<{ id: string }>();
-  const tripId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const tripId = tripIdProp ?? (Array.isArray(params.id) ? params.id[0] : params.id);
   const { user } = useAuth();
   const { trip, refresh: refreshTrip } = useTripFromCache(tripId);
   const cachedBundle = tripId ? expenseCache.get(tripId) : null;
@@ -277,31 +283,48 @@ export function TripExpensesScreen() {
     return expense.createdBy.id === user.id || trip.creatorId === user.id;
   }
 
+  function frame(children: ReactNode) {
+    if (embedded) {
+      return (
+        <ScrollView
+          style={styles.embedded}
+          contentContainerStyle={styles.embeddedContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+      );
+    }
+    return <Screen edges={['left', 'right', 'bottom']}>{children}</Screen>;
+  }
+
   if (loading && !trip) {
-    return (
-      <Screen edges={['left', 'right', 'bottom']}>
+    return frame(
+      <>
         <Skeleton height={120} />
         <Skeleton height={88} />
-      </Screen>
+      </>,
     );
   }
 
   if (error && !trip) {
-    return (
-      <Screen edges={['left', 'right', 'bottom']}>
-        <ErrorState message={error} onRetry={() => void loadExpenses({ force: true })} />
-      </Screen>
-    );
+    return frame(<ErrorState message={error} onRetry={() => void loadExpenses({ force: true })} />);
   }
 
   const totalInr = balances?.totalsByCurrency.find((row) => row.currency === 'INR')?.spentMinor ?? 0;
 
-  return (
-    <Screen edges={['left', 'right', 'bottom']}>
+  return frame(
+    <>
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>{trip?.title ?? trip?.name ?? 'Trip expenses'}</Text>
-          <Text style={styles.subtitle}>Shared ledger for this trip</Text>
+          {embedded ? (
+            <Text style={styles.subtitle}>Shared ledger for this trip</Text>
+          ) : (
+            <>
+              <Text style={styles.title}>{trip?.title ?? trip?.name ?? 'Trip expenses'}</Text>
+              <Text style={styles.subtitle}>Shared ledger for this trip</Text>
+            </>
+          )}
         </View>
         <SecondaryButton label="Add expense" onPress={openForm} />
       </View>
@@ -522,11 +545,18 @@ export function TripExpensesScreen() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => void confirmDelete()}
       />
-    </Screen>
+    </>,
   );
 }
 
 const styles = StyleSheet.create({
+  embedded: { flex: 1, minHeight: 0, backgroundColor: 'transparent' },
+  embeddedContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+    gap: spacing.sm,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

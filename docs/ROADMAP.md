@@ -46,6 +46,8 @@ Status: shared itinerary on trip details is implemented.
 - Activities store title, optional location, date, optional times, and notes.
 - Accepted members can add, edit, and delete activities on the server.
 - Shared packing (group list + private personal list) is implemented. See [PACKING.md](./PACKING.md).
+- Trip chat and decision polls are implemented (persist in MongoDB, focused HTTP polling, in-app notifications). Poll results are not written into the itinerary or bookings. See [CHAT.md](./CHAT.md).
+- Trip details: Overview is the full cover. Other tabs keep a compact trip strip and show Chat, Itinerary, Packing, Bookings, Expenses, or Memories in place.
 - Maps, drag-and-drop scheduling, and offline sync are still ahead.
 
 ## Phase 4 — Bookings and expense splitting

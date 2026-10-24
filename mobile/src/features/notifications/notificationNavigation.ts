@@ -39,5 +39,15 @@ export async function navigateFromNotification(item: AppNotification): Promise<v
     return;
   }
 
+  if (
+    item.entityType === 'message' ||
+    item.entityType === 'poll' ||
+    item.type === 'chat_message' ||
+    item.type.startsWith('poll_')
+  ) {
+    router.push(`/trip/${tripId}?tab=chat` as Href);
+    return;
+  }
+
   router.push(`/trip/${tripId}` as Href);
 }

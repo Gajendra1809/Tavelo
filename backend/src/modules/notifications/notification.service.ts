@@ -325,6 +325,67 @@ function isDuplicateKey(error: unknown): boolean {
   );
 }
 
+export async function notifyChatMessage(input: {
+  actorId: string;
+  actorName: string;
+  trip: TripDocument;
+  messageId: string;
+  preview: string;
+}): Promise<void> {
+  const tripName = input.trip.name;
+  const preview = input.preview.replace(/\s+/g, ' ').slice(0, 80);
+  const hourBucket = new Date().toISOString().slice(0, 13);
+  const recipients = tripMemberUserIds(input.trip).filter((id) => id !== input.actorId);
+  await createNotifications(
+    recipients.map((recipientId) => ({
+      recipientId,
+      actorId: input.actorId,
+      type: 'chat_message',
+      tripId: input.trip._id.toString(),
+      tripName,
+      entityType: 'message' as const,
+      entityId: input.messageId,
+      entityLabel: preview,
+      title: 'New trip chat',
+      message: `${input.actorName} in ${tripName}: ${preview}`,
+      idempotencyKey: `chat_message:${input.trip._id.toString()}:${recipientId}:${hourBucket}`,
+    })),
+  );
+}
+
+export async function notifyPollEvent(input: {
+  actorId: string;
+  actorName: string;
+  trip: TripDocument;
+  pollId: string;
+  question: string;
+  kind: 'poll_created' | 'poll_closed';
+  entityLabel?: string;
+}): Promise<void> {
+  const tripName = input.trip.name;
+  const question = input.question.slice(0, 80);
+  const title = input.kind === 'poll_created' ? 'New poll' : 'Poll closed';
+  const message =
+    input.kind === 'poll_created'
+      ? `${input.actorName} started a poll in ${tripName}: ${question}`
+      : `${input.actorName} closed a poll in ${tripName}: ${question}`;
+  const recipients = tripMemberUserIds(input.trip).filter((id) => id !== input.actorId);
+  await createNotifications(
+    recipients.map((recipientId) => ({
+      recipientId,
+      actorId: input.actorId,
+      type: input.kind,
+      tripId: input.trip._id.toString(),
+      tripName,
+      entityType: 'poll' as const,
+      entityId: input.pollId,
+      entityLabel: input.entityLabel ?? question,
+      title,
+      message,
+    })),
+  );
+}
+
 export async function loadActorName(actorId: string): Promise<string> {
   const map = await loadUserSummaries([actorId]);
   return map.get(actorId)?.name ?? 'Someone';

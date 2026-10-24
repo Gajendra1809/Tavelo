@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { HeaderBackButton } from '@/components/HeaderBackButton';
+import { TripChatHeaderButton } from '@/features/trips/TripChatHeaderButton';
 import { TripDetailScreen } from '@/features/trips/TripDetailScreen';
 import { colors } from '@/theme';
 
@@ -15,6 +16,7 @@ export default function TripDetailRoute() {
           headerStyle: { backgroundColor: colors.sky },
           headerTitleStyle: { color: colors.ink },
           headerLeft: () => <HeaderBackButton />,
+          headerRight: () => <TripChatHeaderButton />,
         }}
       />
       <TripDetailScreen />

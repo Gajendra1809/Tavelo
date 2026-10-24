@@ -50,6 +50,7 @@ The app does not use TanStack Query. Instead, small in-memory TTL stores under `
 | `profileCache` | 120s | Profile focus refresh via `refreshProfile` |
 | `activityCache` | 60s per trip day | Itinerary section on trip detail |
 | `packingCache` | 60s per trip | Packing tab (group + personal lists; paints cache, then refetches on focus) |
+| `chatCache` | 15s per trip | Trip chat messages + polls (focused HTTP poll every 4s while the screen is open) |
 
 **Hooks:** `useTrips` (list + `seedTripForNavigation`), `useTripFromCache` (single trip with stale-while-revalidate).
 
@@ -226,6 +227,15 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `PATCH/DELETE` | `/api/v1/trips/:id/packing/group/:itemId` | Member updates or deletes a group packing item |
 | `GET/POST` | `/api/v1/trips/:id/packing/mine` | Member lists or creates **their own** personal packing items |
 | `PATCH/DELETE` | `/api/v1/trips/:id/packing/mine/:itemId` | Owner of that personal item only |
+| `GET/POST` | `/api/v1/trips/:id/chat/messages` | Member lists (cursor `before`/`after`) or sends a text message |
+| `DELETE` | `/api/v1/trips/:id/chat/messages/:messageId` | Sender soft-deletes their own text message |
+| `POST` | `/api/v1/trips/:id/chat/read` | Member stores a last-read watermark |
+| `POST` | `/api/v1/trips/:id/chat/typing` | Member marks typing for a few seconds (in-memory) |
+| `GET/POST` | `/api/v1/trips/:id/polls` | Member lists or creates a decision poll (also posts a poll card in chat) |
+| `GET/PATCH/DELETE` | `/api/v1/trips/:id/polls/:pollId` | Member reads; creator edits while open or deletes |
+| `POST` | `/api/v1/trips/:id/polls/:pollId/options` | Member adds an option when the poll allows it |
+| `POST/DELETE` | `/api/v1/trips/:id/polls/:pollId/vote` | Member casts, changes, or removes a vote while the poll is open |
+| `POST` | `/api/v1/trips/:id/polls/:pollId/close` | Creator closes the poll |
 | `GET/POST` | `/api/v1/trips/:id/bookings` | Member lists or creates shared bookings (optional `?category=`) |
 | `GET/PATCH/DELETE` | `/api/v1/trips/:id/bookings/:bookingId` | Member reads; creator or owner updates or deletes |
 | `POST` | `/api/v1/trips/:id/bookings/:bookingId/attachments/upload-intent` | Member prepares document upload (presigned PUT) |
@@ -236,7 +246,7 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `PATCH` | `/api/v1/notifications/:notificationId/read` | Mark one notification read (recipient only) |
 | `PATCH` | `/api/v1/notifications/read-all` | Mark all notifications read for the current user |
 
-Notifications are created server-side when invitations are sent, bookings change, involved members’ expenses change, or settlement parties are affected. There is no client-created notification API, push, email, or WebSocket delivery in this phase.
+Notifications are created server-side when invitations are sent, bookings change, involved members’ expenses change, settlement parties are affected, a trip chat message arrives (at most one per recipient per trip per hour), or a poll is created or closed. There is no client-created notification API, push, email, or WebSocket delivery. Chat and poll screens refresh with focused HTTP polling. Details: [CHAT.md](./CHAT.md).
 
 A missing or invalid token is 401. Error bodies do not include the trip. An invitation card for the recipient includes the trip name, destination, and inviter name.
 
@@ -284,11 +294,15 @@ Expenses live in an `Expense` collection with embedded share rows (`userId`, `am
 | **Record settlement** | Only the **payer** or **recipient** of that transfer may record it (403 for other members). Amount cannot exceed the outstanding balance between those two for that currency. |
 | **Cancel settlement** | The member who recorded it, or the trip owner. Cancelling unlocks expense edits again. |
 | **Former members** | Removed members remain on historical expense rows; names show as “Former member” when they are no longer on the trip. |
-| **Trip delete** | Deletes that trip’s bookings (and attachment objects when storage is on), expenses, settlements, memories, invitations, activities, and packing items. |
+| **Trip delete** | Deletes that trip’s bookings (and attachment objects when storage is on), expenses, settlements, memories, invitations, activities, packing items, chat messages, read receipts, polls, and votes. |
 
 Responses always include the trip owner in the member list even when older data stored only invitees in `members`.
 
-Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities, bookings (and booking attachment objects when storage is enabled), expenses, settlements, invitations, memories, and packing items.
+Itinerary activities live in a separate `ItineraryActivity` collection keyed by `tripId`. Each activity has a calendar `date` (stored at UTC midnight, same as trip dates), optional `startTime` and `endTime` as `HH:mm`, optional location and notes, and `createdBy` from the access token. Accepted trip members can list, add, update, and delete activities. Routes are nested under `/api/v1/trips/:id/activities`. Deleting a trip deletes its activities, bookings (and booking attachment objects when storage is enabled), expenses, settlements, invitations, memories, packing items, chat messages, and polls.
+
+Trip chat (`ChatMessage`, `ChatRead`) and decision polls (`TripPoll`, `PollVote`) are member-only and nested under `/api/v1/trips/:id/chat` and `/api/v1/trips/:id/polls`. Vote uniqueness is `{ pollId, userId }`. Anonymous polls hide voter names. A tied poll does not auto-select a winner. A poll result is not written into the itinerary or bookings; members add those by hand. See [CHAT.md](./CHAT.md).
+
+On mobile, **Overview** is the full cover and trip card. Every other tab (Chat, Itinerary, Packing, Bookings, Expenses, Memories) keeps a compact cover strip, the trip name, and the tab bar, and shows that feature in place. `/trip/:id/chat` redirects to `/trip/:id?tab=chat`. Creating a booking still opens the booking detail; Back returns to the trip on the Bookings tab.
 
 Shared packing (`PackingItem`) has two kinds. **Group** items are visible to every accepted member; any member may add, edit, tick packed, assign a current member as owner, or delete. **Personal** items (`kind: 'personal'`) are queried only as `{ tripId, userId: <auth> }`; other members cannot list, patch, or delete them (unknown ids return `404`). The packed flag on the wire is `packed`. Each list is capped at 100 items. Removing a member deletes their personal packing on that trip and clears them as owner on group items. Details: [PACKING.md](./PACKING.md).
 

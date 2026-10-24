@@ -11,17 +11,17 @@ import { Skeleton } from '@/components/Skeleton';
 import { UserAvatar } from '@/components/UserAvatar';
 import { categoryLabel, categorySymbol } from '@/features/bookings/bookingLabels';
 import { useTripFromCache } from '@/hooks/useTripFromCache';
-import { formatDateRange } from '@/lib/dates';
+import { formatDisplayDate, formatDateRange } from '@/lib/dates';
 import { ApiError } from '@/lib/apiClient';
 import { listTripBookings } from '@/services/bookingService';
 import { BOOKING_CATEGORIES, type BookingCategory, type TripBooking } from '@/types/booking';
 import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 
-type Props = { tripId: string };
+type Props = { tripId: string; embedded?: boolean };
 
 type FilterValue = 'all' | BookingCategory;
 
-export function TripBookingsScreen({ tripId }: Props) {
+export function TripBookingsScreen({ tripId, embedded = false }: Props) {
   const { trip } = useTripFromCache(tripId);
   const [bookings, setBookings] = useState<TripBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,18 +59,18 @@ export function TripBookingsScreen({ tripId }: Props) {
     return bookings.filter((row) => row.category === filter);
   }, [bookings, filter]);
 
-  return (
-    <View style={styles.root}>
-      <Atmosphere />
-      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safe}>
+  const list = (
+    <>
         <FlatList
           data={visible}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
-            <View style={styles.header}>
+            <View style={[styles.header, embedded ? styles.headerEmbedded : null]}>
               <View style={styles.headerCard}>
-                <Text style={styles.tripName}>{trip?.name ?? 'Trip bookings'}</Text>
+                {embedded ? null : (
+                  <Text style={styles.tripName}>{trip?.name ?? 'Trip bookings'}</Text>
+                )}
                 <Text style={styles.summary}>
                   {bookings.length} booking{bookings.length === 1 ? '' : 's'} · confirmations & tickets
                 </Text>
@@ -112,6 +112,18 @@ export function TripBookingsScreen({ tripId }: Props) {
           )}
         />
         {loading && bookings.length === 0 ? <Skeleton height={120} /> : null}
+    </>
+  );
+
+  if (embedded) {
+    return <View style={styles.embedded}>{list}</View>;
+  }
+
+  return (
+    <View style={styles.root}>
+      <Atmosphere />
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safe}>
+        {list}
       </SafeAreaView>
     </View>
   );
@@ -121,7 +133,7 @@ function BookingCard({ booking, onPress }: { booking: TripBooking; onPress: () =
   const dateLabel =
     booking.endDate && booking.endDate !== booking.startDate
       ? formatDateRange(booking.startDate, booking.endDate)
-      : booking.startDate;
+      : formatDisplayDate(booking.startDate);
   const place = booking.route || booking.location;
 
   return (
@@ -164,9 +176,11 @@ function BookingCard({ booking, onPress }: { booking: TripBooking; onPress: () =
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sky },
+  embedded: { flex: 1, minHeight: 0, backgroundColor: 'transparent' },
   safe: { flex: 1 },
   list: { paddingBottom: spacing.xxl },
   header: { padding: spacing.xl, gap: spacing.md },
+  headerEmbedded: { paddingTop: spacing.md },
   headerCard: { ...surfaceCard, padding: spacing.xl, gap: spacing.sm },
   tripName: { ...typography.title, fontSize: 24, color: colors.ink },
   summary: { ...typography.body, color: colors.muted },

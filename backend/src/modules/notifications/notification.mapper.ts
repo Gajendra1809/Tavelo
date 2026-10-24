@@ -9,7 +9,7 @@ export type NotificationResponse = {
   readAt: string | null;
   createdAt: string;
   trip: { id: string; name: string } | null;
-  entityType: 'invitation' | 'booking' | 'expense' | 'settlement' | null;
+  entityType: 'invitation' | 'booking' | 'expense' | 'settlement' | 'message' | 'poll' | null;
   entityId: string | null;
   entityLabel: string;
   actor: { id: string; name: string; avatarUrl: string | null };
