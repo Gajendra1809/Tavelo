@@ -105,8 +105,13 @@ export async function openInitialPushNotification(): Promise<void> {
 }
 
 export function subscribeToPushTokenRefresh(onRefresh: () => void): () => void {
-  const subscription = Notifications.addPushTokenListener(() => onRefresh());
-  return () => subscription.remove();
+  try {
+    const subscription = Notifications.addPushTokenListener(() => onRefresh());
+    return () => subscription.remove();
+  } catch {
+    // Expo Go on Android throws here. Remote alerts still work in the installed APK.
+    return () => undefined;
+  }
 }
 
 export async function openPushData(data: Record<string, unknown>): Promise<void> {

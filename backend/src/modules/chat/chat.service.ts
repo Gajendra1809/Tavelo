@@ -35,6 +35,8 @@ export type ChatMessagesPage = {
   newerCursor: string | null;
   reads: ChatReadReceipt[];
   typing: ChatPerson[];
+  /** Caller's read cursor before this response marks the newest message read. */
+  viewerLastReadMessageId: string | null;
 };
 
 const MAX_MESSAGES_PER_TRIP = 5_000;
@@ -93,6 +95,8 @@ export async function listTripMessages(
   const messages = page.map((row) => toMessageResponse(row, userId, profiles));
   const oldest = messages[0];
   const newest = messages.at(-1);
+  const viewerLastReadMessageId =
+    readDocs.find((row) => row.userId.toString() === userId)?.lastReadMessageId.toString() ?? null;
 
   if (newest && !after) {
     await rememberRead(trip._id, userId, newest.id);
@@ -120,6 +124,7 @@ export async function listTripMessages(
       name: profiles.get(id)?.name ?? 'Traveler',
       avatarUrl: profiles.get(id)?.avatarUrl ?? null,
     })),
+    viewerLastReadMessageId,
   };
 }
 

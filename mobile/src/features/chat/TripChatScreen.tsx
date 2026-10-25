@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -61,7 +61,9 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
   const typingAtRef = useRef(0);
   const newerCursorRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<ChatListItem>>(null);
-  const stickToEndRef = useRef(true);
+  const positionedRef = useRef(false);
+  const lastReadRef = useRef<string | null | undefined>(undefined);
+  const scrollTargetRef = useRef<number | null>(null);
   const [messages, setMessages] = useState<ChatListItem[]>(() => chatCache.get(tripId)?.messages ?? []);
   const [polls, setPolls] = useState<TripPoll[]>(() => chatCache.get(tripId)?.polls ?? []);
   const [reads, setReads] = useState<ChatReadReceipt[]>([]);
@@ -71,8 +73,8 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
   );
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(messages.length === 0);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const allowOlderRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
@@ -86,6 +88,7 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
   >(null);
 
   const pollMap = useMemo(() => new Map(polls.map((poll) => [poll.id, poll])), [polls]);
+  const listData = useMemo(() => [...messages].reverse(), [messages]);
   const activePoll = activePollId ? pollMap.get(activePollId) ?? null : null;
 
   const persist = useCallback(
@@ -107,9 +110,6 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
       if (mode === 'initial') {
         setLoading(true);
       }
-      if (mode === 'refresh') {
-        setRefreshing(true);
-      }
       try {
         const [page, pollPage] = await Promise.all([
           listTripMessages(tripId, { limit: 30 }),
@@ -119,6 +119,9 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
           return;
         }
         newerCursorRef.current = page.newerCursor;
+        if (lastReadRef.current === undefined) {
+          lastReadRef.current = page.viewerLastReadMessageId ?? null;
+        }
         setMessages(page.messages);
         setPolls(pollPage.polls);
         setReads(page.reads);
@@ -139,7 +142,6 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
       } finally {
         if (seq === seqRef.current) {
           setLoading(false);
-          setRefreshing(false);
         }
       }
     },
@@ -211,8 +213,10 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
       status: 'sending',
     };
     setDraft('');
-    stickToEndRef.current = true;
     setMessages((current) => [...current, local]);
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    });
     try {
       const saved = await sendTripMessage(tripId, body, nonce);
       setMessages((current) =>
@@ -250,7 +254,6 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
     if (!olderCursor || loadingOlder) {
       return;
     }
-    stickToEndRef.current = false;
     setLoadingOlder(true);
     try {
       const page = await listTripMessages(tripId, { before: olderCursor, limit: 30 });
@@ -329,6 +332,22 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
     void markTripChatTyping(tripId).catch(() => undefined);
   }
 
+  useEffect(() => {
+    if (positionedRef.current || lastReadRef.current === undefined || messages.length === 0) {
+      return;
+    }
+    const target = unreadListIndex(messages, lastReadRef.current);
+    positionedRef.current = true;
+    scrollTargetRef.current = target;
+    if (target == null) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index: target, animated: false, viewPosition: 0.2 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [messages]);
+
   if (loading && messages.length === 0) {
     return (
       <View style={[styles.root, embedded ? styles.rootEmbedded : null]}>
@@ -368,24 +387,31 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
       ) : null}
       <FlatList
         ref={listRef}
-        data={messages}
+        data={listData}
+        inverted={listData.length > 0}
         keyExtractor={(item) => item.id}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => {
-          if (stickToEndRef.current) {
-            listRef.current?.scrollToEnd({ animated: false });
-          }
+        maintainVisibleContentPosition={
+          listData.length > 0 ? { minIndexForVisible: 1, autoscrollToTopThreshold: 80 } : undefined
+        }
+        onScrollToIndexFailed={(info) => {
+          const index = scrollTargetRef.current ?? info.index;
+          setTimeout(() => {
+            listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.2 });
+          }, 80);
         }}
-        onScroll={(event) => {
-          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-          stickToEndRef.current =
-            contentSize.height - layoutMeasurement.height - contentOffset.y < 96;
+        onScroll={() => {
+          allowOlderRef.current = true;
         }}
         scrollEventThrottle={16}
-        refreshing={refreshing || loadingOlder}
-        onRefresh={() => void (olderCursor ? loadOlder() : loadLatest('refresh'))}
+        onEndReached={() => {
+          if (allowOlderRef.current && olderCursor) {
+            void loadOlder();
+          }
+        }}
+        onEndReachedThreshold={0.3}
         ListEmptyComponent={
           <View style={styles.empty}>
             <EmptyState
@@ -395,7 +421,7 @@ export function TripChatScreen({ tripId, embedded = false }: TripChatScreenProps
             />
           </View>
         }
-        ListHeaderComponent={
+        ListFooterComponent={
           loadingOlder ? <ActivityIndicator color={colors.primary} style={styles.older} /> : null
         }
         renderItem={({ item }) => (
@@ -693,6 +719,19 @@ function toggleId(current: string[], optionId: string, maxChoices: number | null
     return next.slice(next.length - maxChoices);
   }
   return next;
+}
+
+/** Index in the inverted list for the first unread row, or null to stay on the latest message. */
+function unreadListIndex(messages: ChatListItem[], lastReadId: string | null): number | null {
+  if (messages.length === 0) {
+    return null;
+  }
+  const readAt = lastReadId ? messages.findIndex((row) => row.id === lastReadId) : -1;
+  const firstUnread = readAt < 0 ? (lastReadId ? 0 : messages.length) : readAt + 1;
+  if (firstUnread >= messages.length - 1) {
+    return null;
+  }
+  return messages.length - 1 - firstUnread;
 }
 
 function seenByNames(item: ChatListItem, reads: ChatReadReceipt[], messages: ChatListItem[]): string[] {

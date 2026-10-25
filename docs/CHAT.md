@@ -7,7 +7,7 @@ Only accepted trip members can read or write chat and polls. A removed member lo
 ## User flow
 
 1. Open a trip. Use the **Chat** tab, or the chat icon in the trip header. The conversation stays on the trip, under a compact cover, title, and member strip. The same compact strip is used on every tab except Overview.
-2. Send text messages. Links that start with `https://` are tappable.
+2. The conversation opens at the first unread message. If you have already read everything, it opens at the latest message. Links that start with `https://` are tappable.
 3. **New poll** to ask a question (hotel, activity, dates, and other presets).
 4. Vote on the compact poll card in chat, or open the full poll.
 5. The creator can close the poll early. Deadlines are enforced on the server.
@@ -37,7 +37,8 @@ Response shape:
   "olderCursor": "…",
   "newerCursor": "…",
   "reads": [{ "userId": "…", "name": "…", "lastReadMessageId": "…", "lastReadAt": "…" }],
-  "typing": [{ "id": "…", "name": "…", "avatarUrl": null }]
+  "typing": [{ "id": "…", "name": "…", "avatarUrl": null }],
+  "viewerLastReadMessageId": null
 }
 ```
 

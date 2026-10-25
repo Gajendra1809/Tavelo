@@ -30,6 +30,7 @@ export type ChatMessagesPage = {
   newerCursor: string | null;
   reads: ChatReadReceipt[];
   typing: ChatPerson[];
+  viewerLastReadMessageId?: string | null;
 };
 
 export type LocalMessageStatus = 'sending' | 'sent' | 'failed';

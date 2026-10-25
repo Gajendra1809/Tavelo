@@ -1,4 +1,5 @@
 import { useFocusEffect, useNavigation } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BackHandler,
@@ -30,6 +31,7 @@ import {
   formatDayTab,
   isClockTime,
   normalizeOptionalTime,
+  parseDateInput,
   todayDateInput,
 } from '@/lib/dates';
 import {
@@ -39,13 +41,28 @@ import {
   updateActivity,
 } from '@/services/itineraryService';
 import type { ActivityFormValues, ItineraryActivity } from '@/types/itinerary';
-import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
+import { colors, radius, spacing, typography } from '@/theme';
 
 type Props = {
   tripId: string;
   startDate: string;
   endDate: string;
 };
+
+function dayChipParts(value: string): { weekday: string; day: string } {
+  const date = parseDateInput(value);
+  return {
+    weekday: date.toLocaleDateString('en-GB', { weekday: 'short' }),
+    day: date.toLocaleDateString('en-GB', { day: 'numeric' }),
+  };
+}
+
+function railTime(activity: ItineraryActivity): string {
+  if (activity.startTime) {
+    return formatActivityTime(activity.startTime, null);
+  }
+  return 'Open';
+}
 
 const emptyForm = (date: string): ActivityFormValues => ({
   title: '',
@@ -263,31 +280,45 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
     }
   }
 
+  const stopCount =
+    activities.length === 1 ? '1 stop' : activities.length > 1 ? `${activities.length} stops` : 'Clear day';
+
   return (
-    <View style={styles.card}>
+    <View style={styles.page}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionLabel}>Itinerary</Text>
-        <SecondaryButton label="Add activity" onPress={openCreate} />
+        <View style={styles.headerCopy}>
+          <Text style={styles.dayTitle}>{formatDayTab(activeDay)}</Text>
+          <Text style={styles.dayMeta}>{loading ? 'Loading this day' : stopCount}</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add activity"
+          onPress={openCreate}
+          style={({ pressed }) => [styles.addButton, pressed ? styles.addPressed : null]}
+        >
+          <SymbolView name={{ android: 'add', ios: 'plus', web: 'add' }} size={22} tintColor={colors.primary} />
+        </Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayRow}>
-        {days.map((day) => {
+        {days.map((day, index) => {
           const active = day === activeDay;
+          const parts = dayChipParts(day);
           return (
             <Pressable
               key={day}
               accessibilityRole="button"
+              accessibilityLabel={`Day ${index + 1}, ${formatDayTab(day)}`}
               accessibilityState={{ selected: active }}
               onPress={() => selectDay(day)}
               style={[styles.dayChip, active ? styles.dayChipActive : null]}
             >
-              <Text style={[styles.dayChipLabel, active ? styles.dayChipLabelActive : null]}>
-                {formatDayTab(day)}
-              </Text>
+              <Text style={[styles.dayWeekday, active ? styles.dayTextActive : null]}>{parts.weekday}</Text>
+              <Text style={[styles.dayNumber, active ? styles.dayTextActive : null]}>{parts.day}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
-      {loading ? <Skeleton height={96} /> : null}
+      {loading ? <Skeleton height={88} /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={() => void loadForDay(activeDay)} /> : null}
       {!loading && !error && activities.length === 0 ? (
         <EmptyState
@@ -297,36 +328,51 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
         />
       ) : null}
       {!loading && !error
-        ? activities.map((activity) => {
+        ? activities.map((activity, index) => {
             const mapsPlace = resolvePlace(activity.place, activity.location);
+            const until = activity.endTime ? formatActivityTime(null, activity.endTime) : null;
+            const last = index === activities.length - 1;
             return (
-            <View key={activity.id} style={styles.activityRow}>
-              <View style={styles.rail} />
-              <View style={styles.activityCopy}>
-                <Text style={styles.activityTime}>{formatActivityTime(activity.startTime, activity.endTime)}</Text>
-                <Text style={styles.activityTitle}>{activity.title}</Text>
-                {activity.location ? (
-                  <Text style={styles.activityMeta}>{activity.location}</Text>
-                ) : null}
-                {mapsPlace && canOpenMaps(mapsPlace) ? (
-                  <DirectionsLink place={mapsPlace} />
-                ) : null}
-                {activity.notes ? <Text style={styles.activityNotes}>{activity.notes}</Text> : null}
-                <View style={styles.activityActions}>
-                  <Pressable accessibilityRole="button" onPress={() => openEdit(activity)} style={styles.textAction}>
-                    <Text style={styles.editLabel}>Edit</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setDeleteTarget(activity)}
-                    style={styles.textAction}
-                  >
-                    <Text style={styles.deleteLabel}>Delete</Text>
-                  </Pressable>
+              <View key={activity.id} style={styles.stop}>
+                <Text style={styles.railTime}>{railTime(activity)}</Text>
+                <View style={styles.spine}>
+                  <View style={[styles.stem, styles.stemTop, index === 0 ? styles.stemClear : null]} />
+                  <View style={[styles.dot, index === 0 ? styles.dotFirst : null]} />
+                  <View style={[styles.stem, styles.stemGrow, last ? styles.stemClear : null]} />
+                </View>
+                <View style={styles.stopCard}>
+                  <View style={styles.stopTop}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${activity.title}`}
+                      onPress={() => openEdit(activity)}
+                      style={({ pressed }) => [styles.stopBody, pressed ? styles.stopPressed : null]}
+                    >
+                      <Text style={styles.activityTitle}>{activity.title}</Text>
+                      {until ? <Text style={styles.until}>{until}</Text> : null}
+                      {activity.location ? <Text style={styles.activityMeta}>{activity.location}</Text> : null}
+                      {activity.notes ? <Text style={styles.activityNotes}>{activity.notes}</Text> : null}
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete ${activity.title}`}
+                      hitSlop={8}
+                      onPress={() => setDeleteTarget(activity)}
+                      style={styles.deleteHit}
+                    >
+                      <SymbolView
+                        name={{ android: 'delete', ios: 'trash', web: 'delete' }}
+                        size={16}
+                        tintColor={colors.muted}
+                      />
+                    </Pressable>
+                  </View>
+                  {mapsPlace && canOpenMaps(mapsPlace) ? (
+                    <DirectionsLink place={mapsPlace} compact label="Map" />
+                  ) : null}
                 </View>
               </View>
-            </View>
-          );
+            );
           })
         : null}
 
@@ -423,10 +469,8 @@ export function TripItinerarySection({ tripId, startDate, endDate }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    ...surfaceCard,
-    padding: spacing.xl,
-    gap: spacing.md,
+  page: {
+    gap: spacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
@@ -434,83 +478,157 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
-  sectionLabel: {
-    ...typography.label,
-    color: colors.ink,
-  },
-  dayRow: {
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  dayChip: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  dayChipActive: {
-    backgroundColor: colors.seafoam,
-    borderColor: colors.primary,
-  },
-  dayChipLabel: {
-    ...typography.body,
-    fontSize: 13,
-    color: colors.muted,
-  },
-  dayChipLabelActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  activityRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  rail: {
-    width: 3,
-    borderRadius: radius.sm,
-    backgroundColor: colors.primary,
-    opacity: 0.35,
-    alignSelf: 'stretch',
-  },
-  activityCopy: {
+  headerCopy: {
     flex: 1,
-    gap: spacing.xs,
-    paddingBottom: spacing.sm,
+    gap: 2,
   },
-  activityTime: {
-    ...typography.label,
-    color: colors.primary,
-  },
-  activityTitle: {
+  dayTitle: {
     ...typography.cardTitle,
     color: colors.ink,
   },
+  dayMeta: {
+    ...typography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.seafoam,
+  },
+  addPressed: {
+    opacity: 0.8,
+  },
+  dayRow: {
+    gap: spacing.sm,
+  },
+  dayChip: {
+    width: 52,
+    height: 64,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  dayChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dayWeekday: {
+    ...typography.body,
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.muted,
+    textTransform: 'uppercase',
+  },
+  dayNumber: {
+    ...typography.cardTitle,
+    fontSize: 18,
+    color: colors.ink,
+  },
+  dayTextActive: {
+    color: colors.onPrimary,
+  },
+  stop: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  railTime: {
+    width: 58,
+    paddingTop: 14,
+    ...typography.label,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.muted,
+    textAlign: 'right',
+  },
+  spine: {
+    width: 14,
+    alignItems: 'center',
+  },
+  stem: {
+    width: 2,
+    backgroundColor: colors.line,
+  },
+  stemTop: {
+    height: 18,
+  },
+  stemGrow: {
+    flex: 1,
+  },
+  stemClear: {
+    backgroundColor: 'transparent',
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  dotFirst: {
+    backgroundColor: colors.primary,
+  },
+  stopCard: {
+    flex: 1,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    gap: spacing.xs,
+  },
+  stopTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  stopBody: {
+    flex: 1,
+    gap: 2,
+  },
+  stopPressed: {
+    opacity: 0.85,
+  },
+  deleteHit: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityTitle: {
+    ...typography.label,
+    color: colors.ink,
+  },
+  until: {
+    ...typography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.primary,
+  },
   activityMeta: {
     ...typography.body,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.muted,
   },
   activityNotes: {
     ...typography.body,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.ink,
-  },
-  activityActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-  },
-  textAction: {
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  editLabel: {
-    ...typography.label,
-    color: colors.primary,
-  },
-  deleteLabel: {
-    ...typography.label,
-    color: colors.danger,
   },
   modalActions: {
     gap: spacing.md,
