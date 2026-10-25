@@ -39,12 +39,10 @@ import type { SentInvitation } from '@/types/invitation';
 import type { Trip } from '@/types/trip';
 import { TripItinerarySection } from '@/features/trips/TripItinerarySection';
 import { TripPackingSection } from '@/features/trips/TripPackingSection';
-import { LocationInlineSummary } from '@/features/location/components/LocationInlineSummary';
+import { DirectionsLink } from '@/features/location/components/DirectionsLink';
+import { canOpenMaps, placePrimaryLine, placeSecondaryLine } from '@/features/location/placeDisplay';
 import { resolvePlace } from '@/features/location/placeHelpers';
-import {
-  TripWeatherHeaderBadge,
-  TripWeatherSummaryRow,
-} from '@/features/weather/TripWeatherInCard';
+import { TripWeatherChip } from '@/features/weather/TripWeatherInCard';
 import { useTripWeather } from '@/features/weather/useTripWeather';
 import { colors, radius, spacing, surfaceCard, typography } from '@/theme';
 
@@ -243,7 +241,12 @@ export function TripDetailScreen() {
   const canManage = Boolean(user && trip.creatorId && user.id === trip.creatorId);
   const duration = formatTripLength(trip.startDate, trip.endDate);
   const members = trip.members ?? [];
-  const destinationPlace = destinationPlaceForWeather!;
+  const destinationPlace = destinationPlaceForWeather;
+  const placeLine = destinationPlace
+    ? (placeSecondaryLine(destinationPlace) ?? placePrimaryLine(destinationPlace))
+    : trip.destination;
+  const showPlaceLine = placeLine.trim().toLowerCase() !== title.trim().toLowerCase();
+  const mapsPlace = destinationPlace && canOpenMaps(destinationPlace) ? destinationPlace : null;
 
   if (activeTab !== 'overview') {
     return (
@@ -303,33 +306,44 @@ export function TripDetailScreen() {
 
   return (
     <Screen edges={['left', 'right', 'bottom']}>
-      <CoverMark
-        uri={trip.coverImageUrl}
-        cacheKey={`trip-cover:${trip.id}`}
-        label={trip.destination}
-        style={styles.cover}
-        textStyle={styles.coverText}
-      />
-      <View style={styles.card}>
-        <View style={styles.destinationRow}>
-          <Text style={styles.destination} numberOfLines={2}>
-            {trip.destination}
-          </Text>
-          <TripWeatherHeaderBadge weather={tripWeather} />
-        </View>
-        <LocationInlineSummary hideName place={destinationPlace} />
-        <Text style={styles.name}>{title}</Text>
-        <Text style={styles.dates}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
-        {duration ? (
-          <View style={styles.pill}>
-            <Text style={styles.duration}>{duration}</Text>
+      <View style={styles.hero}>
+        <View style={styles.heroCoverWrap}>
+          <CoverMark
+            uri={trip.coverImageUrl}
+            cacheKey={`trip-cover:${trip.id}`}
+            label={trip.destination}
+            style={styles.heroCover}
+            textStyle={styles.coverText}
+          />
+          <View style={styles.heroChip}>
+            <TripWeatherChip
+              weather={tripWeather}
+              tripStartDate={trip.startDate}
+              tripEndDate={trip.endDate}
+            />
           </View>
-        ) : null}
-        <TripWeatherSummaryRow
-          weather={tripWeather}
-          tripStartDate={trip.startDate}
-          tripEndDate={trip.endDate}
-        />
+        </View>
+        <View style={styles.heroBody}>
+          <Text style={styles.heroTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          {showPlaceLine || mapsPlace ? (
+            <View style={styles.heroPlaceRow}>
+              {showPlaceLine ? (
+                <Text style={styles.heroPlace} numberOfLines={1}>
+                  {placeLine}
+                </Text>
+              ) : (
+                <View style={styles.heroPlaceSpacer} />
+              )}
+              {mapsPlace ? <DirectionsLink place={mapsPlace} label="Maps" compact /> : null}
+            </View>
+          ) : null}
+          <Text style={styles.heroMeta} numberOfLines={1}>
+            {formatDateRange(trip.startDate, trip.endDate)}
+            {duration ? ` · ${duration}` : ''}
+          </Text>
+        </View>
       </View>
       <SegmentTabs tabs={[...DETAIL_TABS]} active={activeTab} onChange={selectTab} />
 
@@ -512,51 +526,65 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
-  cover: {
-    height: 220,
-    borderRadius: radius.xl,
+  hero: {
+    ...surfaceCard,
+    padding: 0,
     overflow: 'hidden',
   },
+  heroCoverWrap: {
+    height: 168,
+  },
+  heroCover: {
+    height: 168,
+    borderRadius: 0,
+  },
+  heroChip: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    alignItems: 'flex-start',
+  },
+  heroBody: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    gap: 2,
+  },
+  heroTitle: {
+    ...typography.cardTitle,
+    fontSize: 22,
+    lineHeight: 28,
+    color: colors.ink,
+  },
+  heroPlaceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  heroPlace: {
+    ...typography.body,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+  },
+  heroMeta: {
+    ...typography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.ink,
+  },
   coverText: {
-    fontSize: 40,
+    fontSize: 32,
   },
   card: {
     ...surfaceCard,
     padding: spacing.xl,
     gap: spacing.sm,
   },
-  pill: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs,
-    backgroundColor: colors.seafoam,
-    borderRadius: radius.xl,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  destinationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  destination: {
-    ...typography.title,
-    fontSize: 32,
-    color: colors.ink,
+  heroPlaceSpacer: {
     flex: 1,
-    flexShrink: 1,
-  },
-  name: {
-    ...typography.cardTitle,
-    color: colors.ink,
-  },
-  dates: {
-    ...typography.body,
-    color: colors.muted,
-  },
-  duration: {
-    ...typography.label,
-    color: colors.primary,
   },
   sectionLabel: {
     ...typography.label,

@@ -8,9 +8,10 @@ import { colors, spacing, typography } from '@/theme';
 type DirectionsLinkProps = {
   place: TaveloPlace;
   label?: string;
+  compact?: boolean;
 };
 
-export function DirectionsLink({ place, label = 'Directions' }: DirectionsLinkProps) {
+export function DirectionsLink({ place, label = 'Directions', compact = false }: DirectionsLinkProps) {
   if (!canOpenMaps(place)) {
     return null;
   }
@@ -19,14 +20,14 @@ export function DirectionsLink({ place, label = 'Directions' }: DirectionsLinkPr
     <Pressable
       accessibilityRole="button"
       onPress={() => void openMapsDirections(place)}
-      style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [styles.row, compact ? styles.rowCompact : null, pressed ? styles.pressed : null]}
     >
       <SymbolView
         name={{ android: 'directions', web: 'directions' }}
-        size={18}
+        size={compact ? 16 : 18}
         tintColor={colors.primary}
       />
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, compact ? styles.labelCompact : null]}>{label}</Text>
     </Pressable>
   );
 }
@@ -39,11 +40,17 @@ const styles = StyleSheet.create({
     minHeight: 36,
     alignSelf: 'flex-start',
   },
+  rowCompact: {
+    minHeight: 28,
+  },
   pressed: {
     opacity: 0.85,
   },
   label: {
     ...typography.label,
     color: colors.primary,
+  },
+  labelCompact: {
+    fontSize: 13,
   },
 });

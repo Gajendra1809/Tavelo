@@ -6,6 +6,13 @@ import { validate } from '../../utils/validate';
 import { listNotificationsQuerySchema } from './notification.schema';
 import type { ListNotificationsQuery } from './notification.schema';
 import {
+  deactivatePushDeviceSchema,
+  registerPushDeviceSchema,
+  type DeactivatePushDeviceInput,
+  type RegisterPushDeviceInput,
+} from './push.schema';
+import { deactivatePushDevice, registerPushDevice } from './push.service';
+import {
   getUnreadNotificationCount,
   listNotificationsForUser,
   markAllNotificationsRead,
@@ -19,6 +26,31 @@ function paramId(value: string | string[] | undefined): string {
 export const notificationRouter = Router();
 
 notificationRouter.use(requireAuth);
+
+notificationRouter.post(
+  '/devices',
+  validate({ body: registerPushDeviceSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await registerPushDevice(currentUserId(req), req.validated?.body as RegisterPushDeviceInput),
+    );
+  }),
+);
+
+notificationRouter.delete(
+  '/devices',
+  validate({ body: deactivatePushDeviceSchema }),
+  asyncHandler(async (req, res) => {
+    sendSuccess(
+      res,
+      await deactivatePushDevice(
+        currentUserId(req),
+        req.validated?.body as DeactivatePushDeviceInput,
+      ),
+    );
+  }),
+);
 
 notificationRouter.get(
   '/',

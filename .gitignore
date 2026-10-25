@@ -30,6 +30,10 @@ coverage/
 *.pem
 *.tsbuildinfo
 
+# Firebase private keys. Do not commit service-account JSON.
+**/*firebase-adminsdk*.json
+**/service-account*.json
+
 # Signing keys
 *.jks
 *.p8

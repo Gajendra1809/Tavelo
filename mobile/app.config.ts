@@ -1,5 +1,16 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+declare const __dirname: string;
+declare const require: (id: string) => {
+  existsSync: (file: string) => boolean;
+  join: (...parts: string[]) => string;
+};
+
+const fs = require('node:fs');
+const path = require('node:path');
+const googleServicesFile = path.join(__dirname, 'google-services.json');
+const hasGoogleServices = fs.existsSync(googleServicesFile);
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Tavelo',
@@ -17,6 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: 'com.tavelo.app',
     softwareKeyboardLayoutMode: 'resize',
     predictiveBackGestureEnabled: false,
+    ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
     adaptiveIcon: {
       backgroundColor: '#087F78',
       foregroundImage: './assets/android-icon-foreground.png',
@@ -30,6 +42,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/icon.png',
+        color: '#087F78',
+        defaultChannel: 'trip-updates',
+      },
+    ],
     [
       'expo-image-picker',
       {

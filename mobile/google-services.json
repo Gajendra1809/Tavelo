@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "443068869296",
+    "project_id": "tavelo-2cce4",
+    "storage_bucket": "tavelo-2cce4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:443068869296:android:ee8dd1969d9274f2f96975",
+        "android_client_info": {
+          "package_name": "com.tavelo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWwNJqghxIAHFTPi3AULCZVmp0YlSQgTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

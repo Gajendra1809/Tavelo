@@ -88,7 +88,7 @@ Depends on Phase 5 for photo features, and on Phase 3 if a summary needs the iti
 Depends on the features that need them. Maps need places from the itinerary or bookings. Notifications need membership and a device token model. Offline needs a defined set of trip data that is safe to cache.
 
 - Maps for the itinerary.
-- Push notifications for invitations and trip changes.
+- Push notifications for invitations, chat, polls, bookings, and expenses are implemented via Expo Push Service. Firebase FCM credentials and a rebuilt APK are required before a physical device can receive them. See [PUSH.md](./PUSH.md).
 - Offline reading of recently opened trips, with a clear sync rule.
 - Automated tests around auth and permissions, then store builds.
 

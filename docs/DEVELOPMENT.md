@@ -297,6 +297,18 @@ Packing schema and integration tests (from `backend/`):
 npx tsx --test --test-concurrency=1 src/modules/packing/packing.schema.test.ts src/modules/packing/packing.integration.test.ts
 ```
 
+Push token tests (from `backend/`, no Firebase call):
+
+```powershell
+npx tsx --test --test-concurrency=1 src/modules/notifications/push.schema.test.ts src/modules/notifications/push.integration.test.ts
+```
+
+Push tap payload test (from `mobile/`):
+
+```powershell
+npx tsx --test --test-concurrency=1 src/features/notifications/pushPayload.test.ts
+```
+
 Chat and poll tests (from `backend/`):
 
 ```powershell

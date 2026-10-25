@@ -20,6 +20,107 @@ import { colors, spacing, typography } from '@/theme';
 
 type WeatherController = ReturnType<typeof useTripWeather>;
 
+type TripWeatherSummaryRowProps = {
+  weather: WeatherController;
+  tripStartDate: string;
+  tripEndDate: string;
+};
+
+/** Single glass chip for the trip hero. Details stay in the weather sheet. */
+export function TripWeatherChip({
+  weather,
+  tripStartDate,
+  tripEndDate,
+}: TripWeatherSummaryRowProps) {
+  const { eligible, state, refresh, retry } = weather;
+  const [detailVisible, setDetailVisible] = useState(false);
+
+  if (!eligible) {
+    return null;
+  }
+
+  if (state.status === 'loading' || state.status === 'idle') {
+    return (
+      <View style={styles.chipSkeleton}>
+        <Skeleton height={32} />
+      </View>
+    );
+  }
+
+  if (state.status === 'error') {
+    return (
+      <Pressable accessibilityRole="button" accessibilityLabel="Retry weather" onPress={retry} style={styles.chip}>
+        <Text style={styles.chipMuted}>Weather unavailable · Retry</Text>
+      </Pressable>
+    );
+  }
+
+  if (state.status === 'unavailable') {
+    if (state.response.reason === 'manual_location') {
+      return null;
+    }
+    return (
+      <View style={styles.chip}>
+        <Text style={styles.chipMuted} numberOfLines={1}>
+          {state.response.message}
+        </Text>
+      </View>
+    );
+  }
+
+  const data: TripWeatherData = state.data;
+  const refreshing = state.status === 'refreshing';
+  const feels =
+    data.current.apparentTemperatureC != null
+      ? `Feels ${formatTemperatureC(data.current.apparentTemperatureC)}`
+      : null;
+
+  return (
+    <>
+      <View style={styles.chip}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${data.current.conditionLabel}, ${formatTemperatureC(data.current.temperatureC)}. Open weather details.`}
+          onPress={() => setDetailVisible(true)}
+          style={styles.chipMain}
+        >
+          <Text style={styles.chipIcon}>{data.current.conditionIcon}</Text>
+          <Text style={styles.chipTemp}>{formatTemperatureC(data.current.temperatureC)}</Text>
+          <Text style={styles.chipCondition} numberOfLines={1}>
+            {data.current.conditionLabel}
+            {feels ? ` · ${feels}` : ''}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Refresh weather"
+          hitSlop={8}
+          disabled={refreshing}
+          onPress={() => refresh()}
+          style={styles.chipRefresh}
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <SymbolView
+              name={{ android: 'refresh', web: 'refresh' }}
+              size={16}
+              tintColor={colors.primary}
+            />
+          )}
+        </Pressable>
+      </View>
+      <WeatherDetailSheet
+        visible={detailVisible}
+        onClose={() => setDetailVisible(false)}
+        data={data}
+        tripStartDate={tripStartDate}
+        tripEndDate={tripEndDate}
+      />
+    </>
+  );
+}
+
 export function TripWeatherHeaderBadge({ weather }: { weather: WeatherController }) {
   const { eligible, state } = weather;
   if (!eligible) {
@@ -44,12 +145,6 @@ export function TripWeatherHeaderBadge({ weather }: { weather: WeatherController
     </View>
   );
 }
-
-type TripWeatherSummaryRowProps = {
-  weather: WeatherController;
-  tripStartDate: string;
-  tripEndDate: string;
-};
 
 export function TripWeatherSummaryRow({
   weather,
@@ -172,6 +267,61 @@ export function TripWeatherSummaryRow({
 }
 
 const styles = StyleSheet.create({
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    minHeight: 36,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.xs,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    gap: spacing.xs,
+  },
+  chipSkeleton: {
+    width: 148,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  chipMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+    minHeight: 36,
+    paddingVertical: spacing.xs,
+  },
+  chipIcon: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  chipTemp: {
+    ...typography.label,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  chipCondition: {
+    ...typography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+    flexShrink: 1,
+  },
+  chipMuted: {
+    ...typography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+    paddingVertical: spacing.xs,
+    paddingRight: spacing.sm,
+  },
+  chipRefresh: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerSkeleton: {
     width: 72,
     borderRadius: 14,

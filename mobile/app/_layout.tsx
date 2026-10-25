@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { BootScreen } from '@/features/auth/BootScreen';
 import { NotificationUnreadSync } from '@/components/NotificationUnreadSync';
+import { PushNotificationBridge } from '@/features/notifications/PushNotificationBridge';
 import { LocationPickerProvider } from '@/features/location/LocationPickerHost';
 import { colors } from '@/theme';
 
@@ -31,6 +32,7 @@ function RootNavigator() {
   return (
     <>
       {signedIn ? <NotificationUnreadSync /> : null}
+      {signedIn ? <PushNotificationBridge /> : null}
       <Stack
       screenOptions={{
         headerShown: false,

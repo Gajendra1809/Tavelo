@@ -234,11 +234,15 @@ All EAS CLI steps run on **your computer** (Cursor integrated terminal or Window
    "EXPO_PUBLIC_API_URL": "https://tavelo-api.onrender.com"
    ```
 
-### 5.2 Build a preview APK (internal testing)
+### 5.2 Push notifications (before the APK that should receive alerts)
+
+Android pushes need Firebase and an EAS FCM V1 key. Follow [PUSH.md](./PUSH.md): add `mobile/google-services.json`, upload the Firebase service-account key with `npx eas-cli credentials`, and optionally set `EXPO_ACCESS_TOKEN` on Render. Do not commit the service-account JSON.
+
+### 5.3 Build a preview APK (internal testing)
 
 ```powershell
 cd mobile
-eas build -p android --profile preview
+npx eas-cli build -p android --profile preview
 ```
 
 During the first Android build:
@@ -254,7 +258,7 @@ When logs show **Build finished**:
 
 Successful build logs look like: **~257 packages** on Render for the API; on EAS, **Compressed project files** → **Uploaded to EAS** → **Build finished**.
 
-### 5.3 Share with testers
+### 5.4 Share with testers
 
 Send testers:
 
@@ -267,13 +271,13 @@ Include short instructions:
 - Register a new account or use a test account you created.
 - If the app shows network errors, confirm the API health URL in a browser on the same phone.
 
-### 5.4 Rebuild after API or app changes
+### 5.5 Rebuild after API or app changes
 
 - **App code, UI, or app icon** (`mobile/assets/icon.png`, Android adaptive icons): run `eas build` again with the same profile.
 - **Only API URL change:** update `eas.json` env → new build (URL is compiled into the bundle).
 - **Backend-only fix:** push to GitHub → Render auto-redeploys; no new APK unless the app must change.
 
-### 5.5 iOS (optional, later)
+### 5.6 iOS (optional, later)
 
 - Requires Apple Developer Program (**$99/year**).
 - `eas build -p ios --profile preview` then **TestFlight** for testers.

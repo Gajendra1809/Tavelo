@@ -9,6 +9,7 @@ import {
 } from './notification.model';
 import { toNotificationResponse, type NotificationResponse } from './notification.mapper';
 import type { ListNotificationsQuery } from './notification.schema';
+import { deliverPushes, type PushPayload } from './push.service';
 
 type CreateNotificationInput = {
   recipientId: string;
@@ -257,9 +258,10 @@ async function createNotifications(rows: CreateNotificationInput[]): Promise<voi
   if (rows.length === 0) {
     return;
   }
+  const created: PushPayload[] = [];
   for (const row of rows) {
     try {
-      await NotificationModel.create({
+      const doc = await NotificationModel.create({
         recipientId: row.recipientId,
         actorId: row.actorId,
         type: row.type,
@@ -273,12 +275,27 @@ async function createNotifications(rows: CreateNotificationInput[]): Promise<voi
         readAt: null,
         idempotencyKey: row.idempotencyKey ?? null,
       });
+      created.push({
+        notificationId: doc._id.toString(),
+        recipientId: row.recipientId,
+        title: row.title,
+        message: row.message,
+        type: row.type,
+        tripId: row.tripId,
+        entityType: row.entityType,
+        entityId: row.entityId,
+      });
     } catch (error) {
       if (isDuplicateKey(error)) {
         continue;
       }
       console.error('[Tavelo] notification create failed:', error);
     }
+  }
+  try {
+    await deliverPushes(created);
+  } catch (error) {
+    console.error('[Tavelo] push delivery failed:', error);
   }
 }
 
@@ -382,6 +399,7 @@ export async function notifyPollEvent(input: {
       entityLabel: input.entityLabel ?? question,
       title,
       message,
+      idempotencyKey: `${input.kind}:${input.pollId}:${recipientId}`,
     })),
   );
 }

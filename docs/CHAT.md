@@ -86,7 +86,7 @@ Deleting a trip deletes its messages, read receipts, polls, and votes. Removing 
 
 ## Notifications (in-app only)
 
-These are **not** push notifications.
+These rows are stored in MongoDB. A new row is also sent as a phone push when that person has a registered device. See [PUSH.md](./PUSH.md).
 
 | Type | When |
 | --- | --- |

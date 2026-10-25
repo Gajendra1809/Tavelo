@@ -245,8 +245,10 @@ Trip routes require a valid access token. The creator is the user id inside that
 | `GET` | `/api/v1/notifications/unread-count` | Unread count for the current user |
 | `PATCH` | `/api/v1/notifications/:notificationId/read` | Mark one notification read (recipient only) |
 | `PATCH` | `/api/v1/notifications/read-all` | Mark all notifications read for the current user |
+| `POST` | `/api/v1/notifications/devices` | Signed-in user registers this device’s Expo push token |
+| `DELETE` | `/api/v1/notifications/devices` | Signed-in user deactivates this device’s Expo push token |
 
-Notifications are created server-side when invitations are sent, bookings change, involved members’ expenses change, settlement parties are affected, a trip chat message arrives (at most one per recipient per trip per hour), or a poll is created or closed. There is no client-created notification API, push, email, or WebSocket delivery. Chat and poll screens refresh with focused HTTP polling. Details: [CHAT.md](./CHAT.md).
+Notifications are created server-side when invitations are sent, bookings change, involved members’ expenses change, settlement parties are affected, a trip chat message arrives (at most one per recipient per trip per hour), or a poll is created or closed. The phone cannot create a notification for someone else. Each saved row may also be delivered as a push through the Expo Push Service to that user’s registered devices. Details: [CHAT.md](./CHAT.md) and [PUSH.md](./PUSH.md). Chat and poll screens still refresh with focused HTTP polling.
 
 A missing or invalid token is 401. Error bodies do not include the trip. An invitation card for the recipient includes the trip name, destination, and inviter name.
 

@@ -1,3 +1,4 @@
+import { deactivateRegisteredPushDevice } from '@/features/notifications/pushRegistration';
 import { LOGIN_PATH, LOGOUT_PATH, REGISTER_PATH } from '@/constants/api';
 import { apiRequest } from '@/lib/apiClient';
 import { clearSession, persistSession } from '@/lib/session';
@@ -40,6 +41,7 @@ export async function loginAccount(input: { email: string; password: string }): 
 }
 
 export async function logoutAccount(): Promise<void> {
+  await deactivateRegisteredPushDevice();
   const refreshToken = await readToken(tokenKeys.refreshToken);
   try {
     if (refreshToken) {

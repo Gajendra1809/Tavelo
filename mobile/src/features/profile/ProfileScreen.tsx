@@ -13,6 +13,7 @@ import { EditableAvatar } from '@/components/EditableAvatar';
 import { PhotoActionLinks } from '@/components/PhotoActionLinks';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { PushAlertsCard } from '@/features/notifications/PushAlertsCard';
 import { ProfileEditModal } from '@/features/profile/ProfileEditModal';
 import { profileCache } from '@/lib/cache/profileCache';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
@@ -167,6 +168,7 @@ export function ProfileScreen() {
           onSaved={(updated) => void handleProfileSaved(updated)}
         />
       ) : null}
+      <PushAlertsCard />
       <View style={styles.card}>
         <SecondaryButton label="Invitations" onPress={() => router.push('/invitations' as Href)} />
         <SecondaryButton
