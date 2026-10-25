@@ -1,15 +1,14 @@
 import { useFocusEffect } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
-import { PrimaryButton } from '@/components/PrimaryButton';
-import { SecondaryButton } from '@/components/SecondaryButton';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   enablePushAlerts,
   pushAlertsAvailable,
   readPushPermission,
   syncPushTokenIfGranted,
 } from '@/features/notifications/pushRegistration';
-import { colors, spacing, surfaceCard, typography } from '@/theme';
+import { colors, radius, spacing, typography } from '@/theme';
 
 type PermissionState = 'granted' | 'denied' | 'undetermined' | 'unavailable' | 'loading';
 
@@ -33,7 +32,7 @@ export function PushAlertsCard() {
     }, [refresh]),
   );
 
-  if (permission === 'unavailable') {
+  if (!pushAlertsAvailable() || permission === 'unavailable') {
     return null;
   }
 
@@ -44,59 +43,109 @@ export function PushAlertsCard() {
       const next = await enablePushAlerts();
       setPermission(next === 'granted' ? 'granted' : 'denied');
       if (next === 'denied') {
-        setError('Android did not allow alerts. You can turn them on in system settings.');
+        setError('Android did not allow alerts.');
       }
     } catch {
-      setError('Could not register this phone. Check your connection and try again.');
+      setError('Could not register this phone.');
     } finally {
       setBusy(false);
     }
   }
 
+  const status =
+    permission === 'loading' || busy
+      ? '…'
+      : permission === 'granted'
+        ? 'On'
+        : permission === 'denied'
+          ? 'Settings'
+          : 'Turn on';
+  const actionable = permission === 'undetermined' || permission === 'denied';
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Trip alerts</Text>
-      <Text style={styles.body}>
-        Get a phone alert for invitations, chat, polls, bookings, and expenses. Tavelo does not
-        alert you about your own changes.
-      </Text>
-      {permission === 'granted' ? (
-        <Text style={styles.on}>Alerts are on for this phone.</Text>
-      ) : null}
-      {permission === 'undetermined' ? (
-        <PrimaryButton label={busy ? 'Turning on…' : 'Turn on alerts'} loading={busy} onPress={() => void enable()} />
-      ) : null}
-      {permission === 'denied' ? (
-        <SecondaryButton label="Open system settings" onPress={() => void Linking.openSettings()} />
-      ) : null}
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Trip alerts"
+        accessibilityState={{ disabled: !actionable || busy }}
+        disabled={!actionable || busy}
+        onPress={() => {
+          if (permission === 'denied') {
+            void Linking.openSettings();
+            return;
+          }
+          void enable();
+        }}
+        style={({ pressed }) => [styles.row, pressed && actionable ? styles.pressed : null]}
+      >
+        <View style={styles.icon}>
+          <SymbolView
+            name={{ android: 'notifications', ios: 'bell', web: 'notifications' }}
+            size={18}
+            tintColor={colors.primary}
+          />
+        </View>
+        <View style={styles.copy}>
+          <Text style={styles.title}>Trip alerts</Text>
+          <Text style={styles.subtitle}>Invites, chat, and trip changes</Text>
+        </View>
+        <Text style={[styles.status, permission === 'granted' ? styles.statusOn : null]}>{status}</Text>
+      </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    ...surfaceCard,
-    padding: spacing.xl,
-    gap: spacing.sm,
+  row: {
+    minHeight: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  pressed: {
+    backgroundColor: colors.seafoam,
+  },
+  icon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.seafoam,
+  },
+  copy: {
+    flex: 1,
+    gap: 2,
   },
   title: {
-    ...typography.cardTitle,
+    ...typography.label,
     color: colors.ink,
   },
-  body: {
+  subtitle: {
     ...typography.body,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.muted,
   },
-  on: {
+  status: {
     ...typography.label,
     color: colors.primary,
+  },
+  statusOn: {
+    color: colors.muted,
   },
   error: {
     ...typography.body,
     fontSize: 13,
     color: colors.danger,
+    marginTop: spacing.xs,
+    marginLeft: spacing.lg,
   },
 });

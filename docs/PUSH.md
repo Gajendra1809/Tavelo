@@ -102,6 +102,8 @@ cd mobile
 npx eas-cli build -p android --profile preview
 ```
 
+The status-bar icon is `mobile/assets/notification-icon.png`: a white mountain mark on a transparent background. Android uses only that silhouette before the shade is opened. The full-color app icon still appears once the shade is pulled down. Changing this icon requires a new APK.
+
 Install that APK on a **physical** Android phone (not an emulator). Sign in on two accounts, turn on alerts on the second phone, and have the first account invite them or send a chat message. The second phone should show the system alert, and tapping it should open the trip.
 
 If no token is saved, the usual causes are: the APK was built without `google-services.json`, the FCM service-account key is missing on EAS, or notification permission was not granted.
